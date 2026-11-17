@@ -1,0 +1,34 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:"ROMEX" }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'romex/admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}">
+    {# Two logo versions: the CSS shows the one that fits the current theme #}
+    <img class="romex-logo romex-logo-light" src="{% static 'romex/logo.png' %}" alt="ROMEX Logística">
+    <img class="romex-logo romex-logo-dark" src="{% static 'romex/logo-dark.png' %}" alt="ROMEX Logística">
+  </a>
+  <span class="romex-site-label">{{ site_header }}</span>
+</div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block messages %}
+{{ block.super }}
+{% if request.user.is_authenticated and request.user.profile_incomplete %}
+<ul class="messagelist">
+  <li class="warning">
+    Tu perfil está incompleto: faltan tus datos de contacto, sexo o domicilio.
+    <a href="{% url 'admin:accounts_user_change' request.user.pk %}">Completar mi perfil</a>
+  </li>
+</ul>
+{% endif %}
+{% endblock %}

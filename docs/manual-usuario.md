@@ -1,0 +1,40 @@
+# Manual de usuario
+
+Entra con tu **matrícula** y contraseña. Si es tu primer acceso o el gerente restableció tu contraseña, el sistema te pedirá elegir una nueva antes de continuar. Con 5 intentos fallidos la cuenta se bloquea 15 minutos.
+
+## Todos los roles
+
+- **Campana** (arriba): avisos nuevos; entra a *Notificaciones* para leerlos o limpiar los leídos.
+- **Contraseña**: cambia tu contraseña cuando quieras.
+- Junto a tu nombre ves tu **fotografía** o, si no tienes, tus **iniciales**. La pone el gerente.
+- **Listas**: escribe en el buscador, filtra, haz clic en el encabezado de una columna para ordenar (otro clic invierte el orden) y usa la paginación al pie. **Exportar a PDF** abre en una pestaña nueva justo lo que estás viendo, sin paginar; desde el visor del navegador puedes imprimirlo o guardarlo.
+- El botón **Ver ficha en PDF** dentro de un registro abre su ficha en una pestaña nueva. Si el navegador bloquea las ventanas emergentes, el archivo se descarga en su lugar.
+
+## Operador
+
+1. **Checklist**: antes de salir, registra el kilometraje y marca el estado de tu unidad. Las unidades **no aptas para operar** no aparecen en la lista: el formulario te avisa cuáles son y por qué (tienen una falla diagnosticada que aún no se repara).
+2. **Reportar una falla**: unidad, lugar y descripción. Puedes corregirlo mientras esté *Pendiente*.
+3. Sigue el estatus en **Reportes**; recibirás un aviso cuando cambie.
+
+## Mecánico
+
+1. **Reportes asignados**: lo que el gerente te encargó (aviso al asignarte).
+2. **Diagnóstico**: al elegir el reporte ves **la descripción que escribió el operador**. Registra gravedad, la descripción del diagnóstico (causa detallada) y si requiere reparación.
+3. **Mantenimiento**: en un correctivo, al elegir el diagnóstico ves **su descripción (causa detallada)**. Registra servicio realizado, kilometraje, costo y refacciones usadas (se descuentan solas del inventario). Marca *reparación completada* para cerrar el reporte.
+
+## Gerente
+
+- **Dashboard**: indicadores de 3, 6 o 12 meses, con exportación a PDF.
+- **Reportes**: asigna mecánico, revisa el historial de estatus.
+- **Unidades y asignaciones**: alta, baja (desactivar) y operador de cada unidad.
+- **Kardex**: el historial de cada unidad (placas, operadores, reportes, diagnósticos, mantenimientos y checklists). Incluye los **cambios de datos de la unidad** (número económico, modelo, kilometraje, activa o no): qué decía antes, qué dice ahora, quién lo cambió y a qué hora.
+- **Refacciones**: existencias, entradas y ajustes; aviso de stock bajo. En el formulario de la refacción, **Fotografía (opcional)**: elige una imagen (JPG, PNG o WebP, hasta 5 MB), mira cómo queda y guarda; **Quitar fotografía** la elimina. Sin fotografía se ve un ícono. La imagen no se recorta.
+- **Preventivo**: planes (cada cuántos km o días) y tabla de vencimientos.
+- **Trabajadores**: altas, roles, desactivar, restablecer contraseña (la persona deberá cambiarla) y desbloquear cuentas. En el formulario, **Fotografía (opcional)**: elige una imagen (JPG, PNG o WebP, hasta 5 MB), mira cómo queda y guarda; **Quitar fotografía** la elimina. Sin fotografía se ven las iniciales de la persona. El **teléfono** lleva su **código de país** (empieza en México +52) y se escribe solo con números. En **Domicilio** el país es siempre México; eliges el **estado** y el **municipio** (las listas se consultan al INEGI; si el INEGI no responde se avisa y no se puede guardar un domicilio nuevo) y **escribes** la colonia y la calle, más el número exterior (y el interior si lo hay). En **Otros contactos** (hasta 3) agrega otro teléfono (*Número 2*) u otro correo de la misma persona, con una etiqueta y, si quieres, de quién es; se ven debajo del teléfono en la lista.
+- **Bitácora**: quién hizo qué y cuándo; también se puede exportar. No incluye los accesos ni la actividad de las cuentas de administración.
+
+## Dudas frecuentes
+
+- *No puedo entrar*: revisa matrícula y contraseña; si aparece "cuenta bloqueada", espera 15 minutos o pide al gerente que la desbloquee.
+- *Olvidé mi contraseña*: pide al gerente que la restablezca.
+- *No encuentro una unidad o refacción*: puede estar desactivada; el gerente puede reactivarla.

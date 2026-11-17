@@ -1,0 +1,12 @@
+# ROMEX overrides of Django's Spanish (Mexico) texts.
+# Django's groups are used as roles, so they are displayed as "rol" / "roles".
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: es_MX\n"
+
+msgid "group"
+msgstr "rol"
+
+msgid "groups"
+msgstr "roles"

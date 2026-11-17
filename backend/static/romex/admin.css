@@ -1,0 +1,332 @@
+/*
+  ROMEX look for the Django admin.
+  Light: white and gray with red and black details. Dark: the same palette on dark grays.
+  Colors live in the variable blocks below. The dark block appears twice (explicit
+  data-theme="dark" and automatic via the system setting); keep both identical.
+*/
+
+/* ---------- Light theme (default) ---------- */
+:root,
+html[data-theme="light"] {
+  --romex-red: #bd152c;
+  --romex-red-dark: #9f1125;
+  --romex-text: #2d2926;
+  --romex-text-quiet: #6b6b6b;
+  --romex-surface: #ffffff;
+  --romex-surface-alt: #f5f5f5;
+  --romex-header-surface: #ffffff;
+  --romex-header-line: #c9c9c9;
+  --romex-logo-light-display: block;
+  --romex-logo-dark-display: none;
+  color-scheme: light;
+  --primary: #2d2926;
+  --secondary: #bd152c;
+  --accent: #bd152c;
+  --primary-fg: #ffffff;
+  --body-fg: #2d2926;
+  --body-bg: #ffffff;
+  --body-quiet-color: #6b6b6b;
+  --body-medium-color: #444444;
+  --body-loud-color: #000000;
+  --header-color: #6b6b6b;
+  --header-branding-color: #2d2926;
+  --header-bg: #2d2926;
+  --header-link-color: #ffffff;
+  --breadcrumbs-fg: #6b6b6b;
+  --breadcrumbs-link-fg: #2d2926;
+  --breadcrumbs-bg: #f1f1f1;
+  --link-fg: #bd152c;
+  --link-hover-color: #8f0f20;
+  --link-selected-fg: #bd152c;
+  --hairline-color: #e4e4e4;
+  --border-color: #c9c9c9;
+  --error-fg: #bd152c;
+  --message-success-bg: #ddffdd;
+  --message-warning-bg: #ffffcc;
+  --message-error-bg: #fde8e9;
+  --darkened-bg: #f5f5f5;
+  --selected-bg: #e9e9e9;
+  --selected-row: #fde8e9;
+  --button-fg: #ffffff;
+  --button-bg: #2d2926;
+  --button-hover-bg: #000000;
+  --default-button-bg: #bd152c;
+  --default-button-hover-bg: #9f1125;
+  --close-button-bg: #6b6b6b;
+  --close-button-hover-bg: #2d2926;
+  --delete-button-bg: #8f0f20;
+  --delete-button-hover-bg: #6e0a18;
+  --object-tools-fg: #ffffff;
+  --object-tools-bg: #6b6b6b;
+  --object-tools-hover-bg: #2d2926;
+}
+.addlink {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23bd152c' d='M7 3h2v4h4v2H9v4H7V9H3V7h4z'/%3E%3C/svg%3E");
+}
+.changelink,
+.inlinechangelink {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%232d2926' d='M2 11.5V14h2.5l7-7L9 4.5l-7 7zm11.7-6.8a.7.7 0 0 0 0-1l-1.4-1.4a.7.7 0 0 0-1 0L10 3.5 12.5 6l1.2-1.3z'/%3E%3C/svg%3E");
+}
+
+/* ---------- Dark theme: chosen explicitly ---------- */
+html[data-theme="dark"] {
+  --romex-red: #bd152c;
+  --romex-red-dark: #9f1125;
+  --romex-text: #ececec;
+  --romex-text-quiet: #a9a9a9;
+  --romex-surface: #1c1a19;
+  --romex-surface-alt: #262322;
+  --romex-header-surface: #211f1e;
+  --romex-header-line: #4a4542;
+  --romex-logo-light-display: none;
+  --romex-logo-dark-display: block;
+  color-scheme: dark;
+  --primary: #3a3532;
+  --secondary: #bd152c;
+  --accent: #bd152c;
+  --primary-fg: #ffffff;
+  --body-fg: #ececec;
+  --body-bg: #1c1a19;
+  --body-quiet-color: #a9a9a9;
+  --body-medium-color: #d0d0d0;
+  --body-loud-color: #ffffff;
+  --header-color: #a9a9a9;
+  --header-branding-color: #ececec;
+  --header-bg: #3a3532;
+  --header-link-color: #ffffff;
+  --breadcrumbs-fg: #a9a9a9;
+  --breadcrumbs-link-fg: #ececec;
+  --breadcrumbs-bg: #262322;
+  --link-fg: #ff6b7d;
+  --link-hover-color: #ff9aa6;
+  --link-selected-fg: #ff6b7d;
+  --hairline-color: #35312f;
+  --border-color: #4a4542;
+  --error-fg: #ff8a98;
+  --message-success-bg: #1e4a2a;
+  --message-warning-bg: #4a3c10;
+  --message-error-bg: #4a1a22;
+  --darkened-bg: #262322;
+  --selected-bg: #35312f;
+  --selected-row: #3d1f24;
+  --button-fg: #ffffff;
+  --button-bg: #4a4542;
+  --button-hover-bg: #5d5855;
+  --default-button-bg: #bd152c;
+  --default-button-hover-bg: #9f1125;
+  --close-button-bg: #4a4542;
+  --close-button-hover-bg: #5d5855;
+  --delete-button-bg: #a31428;
+  --delete-button-hover-bg: #bd152c;
+  --object-tools-fg: #ffffff;
+  --object-tools-bg: #4a4542;
+  --object-tools-hover-bg: #5d5855;
+}
+html[data-theme="dark"] .addlink {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23ff6b7d' d='M7 3h2v4h4v2H9v4H7V9H3V7h4z'/%3E%3C/svg%3E");
+}
+html[data-theme="dark"] .changelink,
+html[data-theme="dark"] .inlinechangelink {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23ececec' d='M2 11.5V14h2.5l7-7L9 4.5l-7 7zm11.7-6.8a.7.7 0 0 0 0-1l-1.4-1.4a.7.7 0 0 0-1 0L10 3.5 12.5 6l1.2-1.3z'/%3E%3C/svg%3E");
+}
+
+/* ---------- Dark theme: automatic (system setting) ---------- */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --romex-red: #bd152c;
+    --romex-red-dark: #9f1125;
+    --romex-text: #ececec;
+    --romex-text-quiet: #a9a9a9;
+    --romex-surface: #1c1a19;
+    --romex-surface-alt: #262322;
+    --romex-header-surface: #211f1e;
+    --romex-header-line: #4a4542;
+    --romex-logo-light-display: none;
+    --romex-logo-dark-display: block;
+    color-scheme: dark;
+    --primary: #3a3532;
+    --secondary: #bd152c;
+    --accent: #bd152c;
+    --primary-fg: #ffffff;
+    --body-fg: #ececec;
+    --body-bg: #1c1a19;
+    --body-quiet-color: #a9a9a9;
+    --body-medium-color: #d0d0d0;
+    --body-loud-color: #ffffff;
+    --header-color: #a9a9a9;
+    --header-branding-color: #ececec;
+    --header-bg: #3a3532;
+    --header-link-color: #ffffff;
+    --breadcrumbs-fg: #a9a9a9;
+    --breadcrumbs-link-fg: #ececec;
+    --breadcrumbs-bg: #262322;
+    --link-fg: #ff6b7d;
+    --link-hover-color: #ff9aa6;
+    --link-selected-fg: #ff6b7d;
+    --hairline-color: #35312f;
+    --border-color: #4a4542;
+    --error-fg: #ff8a98;
+    --message-success-bg: #1e4a2a;
+    --message-warning-bg: #4a3c10;
+    --message-error-bg: #4a1a22;
+    --darkened-bg: #262322;
+    --selected-bg: #35312f;
+    --selected-row: #3d1f24;
+    --button-fg: #ffffff;
+    --button-bg: #4a4542;
+    --button-hover-bg: #5d5855;
+    --default-button-bg: #bd152c;
+    --default-button-hover-bg: #9f1125;
+    --close-button-bg: #4a4542;
+    --close-button-hover-bg: #5d5855;
+    --delete-button-bg: #a31428;
+    --delete-button-hover-bg: #bd152c;
+    --object-tools-fg: #ffffff;
+    --object-tools-bg: #4a4542;
+    --object-tools-hover-bg: #5d5855;
+  }
+  html:not([data-theme="light"]) .addlink {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23ff6b7d' d='M7 3h2v4h4v2H9v4H7V9H3V7h4z'/%3E%3C/svg%3E");
+  }
+  html:not([data-theme="light"]) .changelink,
+  html:not([data-theme="light"]) .inlinechangelink {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23ececec' d='M2 11.5V14h2.5l7-7L9 4.5l-7 7zm11.7-6.8a.7.7 0 0 0 0-1l-1.4-1.4a.7.7 0 0 0-1 0L10 3.5 12.5 6l1.2-1.3z'/%3E%3C/svg%3E");
+  }
+}
+
+/* ---------- Layout and details (all themes) ---------- */
+
+/* Header: bar with a red line below and a small logo in the corner */
+#header {
+  background: var(--romex-header-surface);
+  color: var(--romex-text-quiet);
+  padding: 8px 24px;
+  border-bottom: 4px solid var(--romex-red);
+}
+
+#header a:link,
+#header a:visited,
+#logout-form button {
+  color: var(--romex-text);
+  border-bottom-color: var(--romex-header-line);
+}
+
+#header a:hover,
+#header a:focus,
+#logout-form button:hover {
+  color: var(--romex-red);
+  border-bottom-color: var(--romex-red);
+}
+
+#user-tools {
+  color: var(--romex-text-quiet);
+}
+
+#user-tools strong {
+  color: var(--romex-text);
+}
+
+/* Theme toggle button (Django's own, auto -> light -> dark) */
+.theme-toggle svg.theme-icon-when-auto,
+.theme-toggle svg.theme-icon-when-dark,
+.theme-toggle svg.theme-icon-when-light {
+  fill: var(--romex-text);
+  color: var(--romex-header-surface);
+}
+
+#site-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+#site-name a:link,
+#site-name a:visited {
+  display: flex;
+  border: none;
+}
+
+.romex-logo {
+  height: 28px;
+  width: auto;
+}
+
+.romex-logo-light {
+  display: var(--romex-logo-light-display);
+}
+
+.romex-logo-dark {
+  display: var(--romex-logo-dark-display);
+}
+
+.romex-site-label {
+  padding-left: 12px;
+  border-left: 1px solid var(--romex-header-line);
+  color: var(--romex-text-quiet);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+/* Login page: gray background, card with a red top edge (needs body.login to beat login.css) */
+body.login {
+  background: var(--darkened-bg);
+}
+
+body.login #container {
+  border: 1px solid var(--border-color);
+  border-top: 4px solid var(--romex-red);
+  border-radius: 8px;
+}
+
+body.login #header {
+  background: var(--romex-surface);
+  justify-content: center;
+  padding: 24px 16px 8px;
+  border-bottom: none;
+}
+
+body.login #site-name {
+  flex-direction: column;
+  gap: 8px;
+}
+
+body.login .romex-logo {
+  height: 44px;
+}
+
+body.login .romex-site-label {
+  padding-left: 0;
+  border-left: none;
+}
+
+body.login .submit-row input[type="submit"] {
+  background: var(--romex-red);
+}
+
+body.login .submit-row input[type="submit"]:hover {
+  background: var(--romex-red-dark);
+}
+
+#content h1 {
+  color: var(--romex-text);
+}
+
+#nav-sidebar {
+  background: var(--romex-surface);
+}
+
+/* Sidebar app titles: light text on the caption bar */
+#nav-sidebar .module caption a.section:link,
+#nav-sidebar .module caption a.section:visited {
+  color: #fff;
+}
+
+/* Keyboard focus in the brand color */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline-color: var(--romex-red);
+}
