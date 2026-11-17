@@ -2,6 +2,7 @@
 
 | Documento | Contenido | Cómo se mantiene |
 |---|---|---|
+| [onboarding.md](onboarding.md) | Guía para quien llega: levantar el sistema, usuarios de prueba, recorrido por el código, cómo entregar un cambio y problemas frecuentes | A mano |
 | [instalacion.md](instalacion.md) | Cómo levantar el sistema con Docker y sin Docker | A mano |
 | [arquitectura.md](arquitectura.md) | Estructura del código, capas y flujo de una petición | A mano |
 | [roles-permisos.md](roles-permisos.md) | Qué puede hacer cada rol | A mano |
