@@ -160,7 +160,11 @@ def part_sheet(user, part):
     return pdf.sheet_pdf(user, f"Refacción: {part['name']}", "Ficha de refacción", sections)
 
 
-def kardex_sheet(user, data):
+def kardex_sheet(user, data, section_tables):
+    """
+    The complete kardex: the unit, its summary and preventive plans, its plates, and one table
+    per section of the screen (maintenances, faults, checklists, parts, people, changes).
+    """
     unit, summary = data["unit"], data["summary"]
     plate = unit["current_plate"]
     sections = [
@@ -174,8 +178,8 @@ def kardex_sheet(user, data):
                 ("Placa actual", plate["identifier"] if plate else "Sin placa vigente"),
                 ("Estado de la placa", plate["state"] if plate else "-"),
                 (
-                    "Operadores vigentes",
-                    ", ".join(o["operator"]["label"] for o in unit["operators"] if o["end_date"] is None) or "-",
+                    "Operador",
+                    unit["current_operator"]["operator"]["label"] if unit["current_operator"] else "Sin operador",
                 ),
             ],
         },
@@ -205,19 +209,18 @@ def kardex_sheet(user, data):
                 ],
             }
         )
-    if data["parts_used"]:
-        sections.append(
-            {
-                "heading": "Refacciones cambiadas",
-                "columns": [("Refacción", 4), ("Piezas", 1), ("Veces", 1), ("Último cambio", 1.6)],
-                "rows": [[p["label"], p["pieces"], p["times"], p["last_date"]] for p in data["parts_used"]],
-            }
-        )
     sections.append(
         {
-            "heading": "Historial de la unidad (lo más reciente primero)",
-            "columns": [("Fecha", 1.2), ("Evento", 4), ("Detalle", 4)],
-            "rows": [[e["date"], e["title"], e["detail"] or "-"] for e in data["events"]],
+            "heading": "Placas",
+            "columns": [("Placa", 2), ("Estado", 3), ("Desde", 1.4), ("Hasta", 1.4)],
+            "rows": [
+                [p["identifier"], p["state"], p["start_date"], p["end_date"] or "Vigente"]
+                for p in unit["plate_history"]
+            ],
+            "empty": "Sin placas.",
         }
     )
-    return pdf.sheet_pdf(user, f"Kardex de la unidad {unit['economic_number']}", "Historial completo", sections)
+    sections.extend(section_tables)
+    return pdf.sheet_pdf(
+        user, f"Kardex de la unidad {unit['economic_number']}", "Kardex completo", sections, landscape_mode=True
+    )

@@ -15,10 +15,18 @@ class SparePartAdmin(admin.ModelAdmin):
 
 @admin.register(UnitOperator)
 class UnitOperatorAdmin(admin.ModelAdmin):
+    """
+    The model's clean() applies the API rules: one open assignment per unit and per operator,
+    no future dates. An assignment is ended (end date), never deleted: it is the unit's history.
+    """
+
     list_display = ("unit", "operator", "start_date", "end_date")
     list_filter = ("end_date",)
     search_fields = ("unit__economic_number", "operator__enrollment_id")
     ordering = ("-start_date",)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ReportMechanic)

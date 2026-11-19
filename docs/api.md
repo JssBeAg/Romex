@@ -49,7 +49,7 @@ Respuesta: `{"<clave>": [...], "pagination": {"page", "pages", "page_size", "tot
 ## PDF
 
 - **Listas**: `format=pdf` en cualquiera de las anteriores, más `preventivo/vencimientos/` y `bitacora/` (esta última, las 2000 líneas más recientes).
-- **Fichas de un registro**: `format=pdf` en el detalle de `reportes-fallas/<id>/`, `diagnosticos/<id>/`, `mantenimientos/<id>/`, `checklists/<id>/`, `refacciones/<id>/` y `kardex/<id>/`.
+- **Fichas de un registro**: `format=pdf` en el detalle de `reportes-fallas/<id>/`, `diagnosticos/<id>/`, `mantenimientos/<id>/`, `checklists/<id>/` y `refacciones/<id>/`. El del kardex está en `kardex/<id>/` (completo) y en cada una de sus secciones.
 - **Dashboard**: `dashboard/?months=6&format=pdf`.
 
 Cada PDF respeta los permisos de quien lo pide (solo exporta lo que podría ver) y deja una línea en la bitácora.
@@ -75,11 +75,42 @@ Para guardar (POST/PUT, admite `?validar=1`): `phone_code_id` y `phone_number` s
 
 `trabajadores/catalogos/` agrega `phone_codes` (solo los activos) y `max_contacts`.
 
-`kardex/<id>/` (solo gerente) trae `events`; los que tienen `type: "change"` son los cambios de datos de la unidad (`title` dice quién, `detail` la hora y *campo: antes → después*). Los eventos `maintenance` traen en `detail` (varias líneas) refacciones, responsables, causa y observaciones, y la respuesta incluye `parts_used` (`label`, `pieces`, `times`, `last_date`).
+## Kardex de una unidad
+
+Solo para el gerente. `kardex/<id>/` devuelve el encabezado: `unit`, `summary` y `preventive`. Con `format=pdf` devuelve el **kardex completo**: una tabla por sección, sin filtros.
+
+Cada sección es una lista con el comportamiento de las demás (`q`, `date_from`/`date_to`, `order`, `page`/`page_size`, `format=pdf`, que respeta los filtros), y sus filas traen cada dato en su campo:
+
+| Ruta | Clave | Orden (`order`) | Filtros propios | Campos de cada fila |
+|---|---|---|---|---|
+| `kardex/<id>/mantenimientos/` | `maintenances` | `date`, `mileage`, `cost` | `tipo` (`preventivo`/`correctivo`), `terminada` (`si`/`no`, solo correctivos) | `folio`, `date`, `service_type`, `plan`, `mileage`, `cost`, `people`, `parts` (`label`, `quantity`), `repair_completed` (`null` en preventivos), `report`, `diagnosis` (`id`, `label`), `failure`, `cause`, `observations` |
+| `kardex/<id>/fallas/` | `faults` (+ `statuses`) | `date`, `status` | `estatus` (id) | `folio`, `date`, `reported_by`, `location`, `description`, `status`, `mechanics`, `diagnosis` (`cause`, `severity`, `requires_repair`, `unit_operable`…) o `null` |
+| `kardex/<id>/checklists/` | `checklists` | `date`, `mileage` | `resultado` (`ok`/`fallas`) | `folio`, `date`, `operator`, `mileage`, `ok`, `failed_items`, `trip_description`… |
+| `kardex/<id>/refacciones/` | `parts` | `last_date`, `part`, `pieces`, `times` | — | `label`, `pieces`, `times`, `last_date` |
+| `kardex/<id>/operadores/` | `people` | `start_date`, `end_date`, `person` | `rol` (`operador`/`mecanico`) | `role`, `person`, `start_date`, `end_date` (`null` = actual), `report` |
+| `kardex/<id>/cambios/` | `changes` (+ `users`) | `moment`, `field` | `usuario` (id) | `moment`, `date`, `field`, `old`, `new`, `user` |
+| `kardex/<id>/linea-de-tiempo/` | `events` (+ `types`) | `date` | `tipo` (`maintenance`, `report`, `operator`…) | `type`, `type_label`, `date`, `title`, `detail` (una línea), `link` |
+
+Por defecto, cada sección viene ordenada de lo más reciente a lo más antiguo. Una unidad que no existe responde 404, y un rol que no es gerente, 403. En la línea de tiempo, los eventos `operator` dicen «Asignada a *operador*» y «Operador *operador* dejó la unidad», con el periodo en `detail`.
+
+## Operador de una unidad
+
+Cada unidad devuelve `current_operator` (la asignación abierta: `{id, operator: {id, label}, start_date, end_date: null}`, o `null`) y `operators`, el historial completo, del más reciente al más antiguo.
+
+El alta (`POST unidades/`) y la edición (`PUT unidades/<id>/`) aceptan, opcionales:
+
+| Campo | Qué hace |
+|---|---|
+| `end_operator: {assignment_id, end_date}` | Termina la asignación abierta de la unidad (fecha de fin; no se borra la fila) |
+| `new_operator: {operator_id, start_date}` | Abre una asignación nueva |
+
+Los dos juntos son un **cambio de operador**, que se guarda en una sola transacción. Los errores llegan en `errors.operator` (400, o 200 con `?validar=1`). Por ejemplo, la unidad ya tiene operador, el operador ya tiene otra unidad, fechas futuras o una fecha de fin anterior al inicio. Si la base rechaza la asignación porque otra persona la hizo antes, también responde 400 en `errors.operator`, con quién la tiene. Desactivar (`is_active: false`) una unidad que conserva su operador responde 400 en `errors.is_active`.
+
+`unidades/catalogos/` devuelve en `operators` los operadores activos **sin unidad abierta**, cada uno con `current: false`. Con `?unidad=<id>` incluye además al operador actual de esa unidad, con `current: true`.
 
 ## Unidades aptas en el checklist
 
-`checklists/catalogos/` devuelve `units` (las aptas para operar: las asignadas al operador, o todas las activas para el gerente) y `not_operable` (las que se dejan fuera por no estar aptas, para que el formulario lo explique). Crear un checklist de una unidad no apta responde 400 con `errors.unit_id`.
+`checklists/catalogos/` devuelve `units` (las aptas para operar: la que el operador tiene asignada ahora, o todas las activas para el gerente) y `not_operable` (las que se dejan fuera por no estar aptas, para que el formulario lo explique). Crear un checklist de una unidad no apta responde 400 con `errors.unit_id`.
 
 ## Descripciones que acompañan a cada registro
 

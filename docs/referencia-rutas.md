@@ -1,6 +1,6 @@
 # Referencia de rutas de la API
 
-_Generado automáticamente con `python manage.py generar_docs` (2026-11-17). No lo edites a mano._
+_Generado automáticamente con `python manage.py generar_docs` (2026-11-18). No lo edites a mano._
 
 Todas las rutas cuelgan de `/api/`. Detalle de uso y ejemplos en [api.md](api.md).
 
@@ -21,7 +21,14 @@ Todas las rutas cuelgan de `/api/`. Detalle de uso y ejemplos en [api.md](api.md
 | `/api/diagnosticos/<pk>/` | `diagnoses_api.diagnosis_detail` |  |
 | `/api/diagnosticos/catalogos/` | `diagnoses_api.catalogs` | Options for the diagnosis form: severities and the reports that have no diagnosis yet |
 | `/api/health/` | `urls.health` | Simple endpoint to verify the API is up. |
-| `/api/kardex/<pk>/` | `kardex_api.kardex` |  |
+| `/api/kardex/<pk>/` | `kardex_api.kardex` | Header of the kardex of a unit (data, summary, preventive plans); with format=pdf, the whole kardex. |
+| `/api/kardex/<pk>/cambios/` | `kardex_sections.kardex_cambios` | The kardex section «Cambios de datos» of one unit: filters, order, pages and PDF. |
+| `/api/kardex/<pk>/checklists/` | `kardex_sections.kardex_checklists` | The kardex section «Checklists» of one unit: filters, order, pages and PDF. |
+| `/api/kardex/<pk>/fallas/` | `kardex_sections.kardex_fallas` | The kardex section «Fallas» of one unit: filters, order, pages and PDF. |
+| `/api/kardex/<pk>/linea-de-tiempo/` | `kardex_api.timeline` | General timeline of the kardex of a unit: every event by date, filtered by type. |
+| `/api/kardex/<pk>/mantenimientos/` | `kardex_sections.kardex_mantenimientos` | The kardex section «Mantenimientos» of one unit: filters, order, pages and PDF. |
+| `/api/kardex/<pk>/operadores/` | `kardex_sections.kardex_operadores` | The kardex section «Operadores y mecánicos» of one unit: filters, order, pages and PDF. |
+| `/api/kardex/<pk>/refacciones/` | `kardex_sections.kardex_refacciones` | The kardex section «Refacciones cambiadas» of one unit: filters, order, pages and PDF. |
 | `/api/mantenimientos/` | `maintenances_api.maintenances` |  |
 | `/api/mantenimientos/<pk>/` | `maintenances_api.maintenance_detail` |  |
 | `/api/mantenimientos/catalogos/` | `maintenances_api.catalogs` | Options for the maintenance form. |
@@ -51,4 +58,4 @@ Todas las rutas cuelgan de `/api/`. Detalle de uso y ejemplos en [api.md](api.md
 | `/api/ubicaciones/municipios/` | `api.municipalities` |  |
 | `/api/unidades/` | `units_api.units` |  |
 | `/api/unidades/<pk>/` | `units_api.unit_detail` |  |
-| `/api/unidades/catalogos/` | `units_api.catalogs` | Options for the unit form: brands, models (each with its brand) and the active operators. |
+| `/api/unidades/catalogos/` | `units_api.catalogs` | Options for the unit form: brands, models and the operators without a unit (plus the current one). |

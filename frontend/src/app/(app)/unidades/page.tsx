@@ -102,7 +102,7 @@ export default function UnitsPage() {
             <SortHeader column="brand" order={String(params.order)} onSort={list.sortBy}>Marca</SortHeader>
             <SortHeader column="model" order={String(params.order)} onSort={list.sortBy}>Modelo</SortHeader>
             <SortHeader column="mileage" order={String(params.order)} onSort={list.sortBy}>Kilometraje</SortHeader>
-            <th>Operadores</th>
+            <th>Operador</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -124,10 +124,7 @@ export default function UnitsPage() {
               <td>{unit.unit_model.label}</td>
               <td>{unit.mileage}</td>
               <td>
-                {unit.operators
-                  .filter((assignment) => assignment.end_date === null)
-                  .map((assignment) => assignment.operator.label)
-                  .join(", ") || "Sin asignar"}
+                {unit.current_operator?.operator.label ?? "Sin asignar"}
               </td>
               <td>
                 <Link href={`/unidades/${unit.id}`}>Editar</Link>{" "}

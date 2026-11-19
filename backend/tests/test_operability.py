@@ -6,8 +6,9 @@ from .base import ApiTestCase, today
 class OperabilityTest(ApiTestCase):
     def setUp(self):
         super().setUp()
-        self.unit = self.make_unit("OP-1")
-        self.other = self.make_unit("OP-2")
+        self.unit = self.make_unit("OP-1")  # of O1
+        self.other = self.make_unit("OP-2", operator=self.operator2)  # an operator has one unit at most
+        self.o2 = self.client_for(self.operator2)
         self.report = self.make_report(self.unit)
         r = self.g.post_json(
             f"/api/reportes-fallas/{self.report['id']}/mecanicos/",
@@ -46,16 +47,19 @@ class OperabilityTest(ApiTestCase):
         return sorted(u["label"].split(" ")[0] for u in units)
 
     # -- tests ----------------------------------------------------------------------------
-    def test_every_assigned_unit_is_offered_while_nothing_is_wrong(self):
+    def test_the_assigned_unit_is_offered_while_nothing_is_wrong(self):
         data = self.catalog()
-        self.assertEqual(len(data["units"]), 2)
+        self.assertEqual([u["id"] for u in data["units"]], [self.unit["id"]])
         self.assertEqual(data["not_operable"], [])
+        self.assertEqual(len(self.catalog(self.g)["units"]), 2)  # the manager sees every active unit
 
     def test_a_unit_diagnosed_as_not_operable_leaves_the_form_and_is_listed_apart(self):
         self.diagnose(operable=False)
         data = self.catalog()
-        self.assertEqual([u["id"] for u in data["units"]], [self.other["id"]])
+        self.assertEqual(data["units"], [])
         self.assertEqual([u["id"] for u in data["not_operable"]], [self.unit["id"]])
+        # the unit of another operator is not affected
+        self.assertEqual([u["id"] for u in self.catalog(self.o2)["units"]], [self.other["id"]])
 
     def test_it_also_leaves_the_form_of_the_manager(self):
         self.diagnose(operable=False)
@@ -78,7 +82,7 @@ class OperabilityTest(ApiTestCase):
 
     def test_another_unit_still_takes_checklists(self):
         self.diagnose(operable=False)
-        r = self.o.post_json("/api/checklists/", self.checklist_data(self.other))
+        r = self.o2.post_json("/api/checklists/", self.checklist_data(self.other))
         self.assertEqual(r.status_code, 201, r.content)
 
     def test_it_is_fit_again_when_the_repair_is_finished(self):
@@ -104,8 +108,12 @@ class OperabilityTest(ApiTestCase):
         self.assertEqual(r.status_code, 200, r.content)
 
     def test_an_old_checklist_cannot_be_moved_to_a_unit_that_is_not_fit(self):
-        created = self.o.post_json("/api/checklists/", self.checklist_data(self.other)).json()["checklist"]
+        # O2 checks OP-2, then is moved to OP-1 (which O1 leaves), and OP-1 is found not fit
+        created = self.o2.post_json("/api/checklists/", self.checklist_data(self.other)).json()["checklist"]
+        self.assertEqual(self.change_operator(self.other["id"], end_date=today()).status_code, 200)
+        r = self.change_operator(self.unit["id"], end_date=today(), new_operator=self.operator2)
+        self.assertEqual(r.status_code, 200, r.content)
         self.diagnose(operable=False)
-        r = self.o.put_json(f"/api/checklists/{created['id']}/", self.checklist_data(self.unit))
+        r = self.o2.put_json(f"/api/checklists/{created['id']}/", self.checklist_data(self.unit))
         self.assertEqual(r.status_code, 400)
         self.assertIn("unit_id", r.json()["errors"])

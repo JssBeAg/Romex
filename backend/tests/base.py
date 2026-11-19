@@ -79,7 +79,14 @@ class ApiTestCase(TestCase):
         self.o = self.client_for(self.operator)
 
     # -- data helpers (through the API, like the screens do) --------------------------------
-    def make_unit(self, number="T-100", operators=None, mileage=1000):
+    DEFAULT = object()
+
+    def make_unit(self, number="T-100", operator=DEFAULT, mileage=1000):
+        """
+        A unit assigned to `operator` since today (by default the first operator; None = no operator).
+        An operator has one open unit at most: a second unit needs another operator or None.
+        """
+        operator = self.operator if operator is self.DEFAULT else operator
         response = self.g.post_json(
             "/api/unidades/",
             {
@@ -91,13 +98,30 @@ class ApiTestCase(TestCase):
                     "state": "Coahuila de Zaragoza",
                     "start_date": today(),
                 },
-                "add_operators": [
-                    {"operator_id": u.pk, "start_date": today()} for u in (operators or [self.operator])
-                ],
+                "new_operator": {"operator_id": operator.pk, "start_date": today()} if operator else None,
             },
         )
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()["unit"]
+
+    def change_operator(self, unit_id, end_date=None, new_operator=None, start_date=None, client=None, validate=False):
+        """
+        PUT the unit (as the manager) ending its open assignment on `end_date` and/or opening one for
+        `new_operator` from `start_date` (today by default). Returns the response.
+        """
+        unit = self.g.get_json(f"/api/unidades/{unit_id}/").json()["unit"]
+        payload = {
+            "economic_number": unit["economic_number"],
+            "unit_model_id": unit["unit_model"]["id"],
+            "mileage": str(unit["mileage"]),
+            "is_active": unit["is_active"],
+        }
+        if end_date is not None:
+            payload["end_operator"] = {"assignment_id": unit["current_operator"]["id"], "end_date": end_date}
+        if new_operator is not None:
+            payload["new_operator"] = {"operator_id": new_operator.pk, "start_date": start_date or today()}
+        suffix = "?validar=1" if validate else ""
+        return (client or self.g).put_json(f"/api/unidades/{unit_id}/{suffix}", payload)
 
     def make_part(self, name, stock=0, min_stock=0):
         response = self.g.post_json(

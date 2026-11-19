@@ -1243,3 +1243,70 @@ html[data-theme="dark"] {
   object-fit: contain; /* the whole piece is visible, never cropped */
   display: block;
 }
+
+/* Tabs (kardex of a unit): one section at a time. The row of tabs scrolls on a phone */
+.app-content .tabs {
+  display: flex;
+  gap: 4px;
+  margin: 24px 0 0;
+  border-bottom: 2px solid var(--color-border);
+  overflow-x: auto;
+}
+
+.app-content .tabs [role="tab"][type="button"] {
+  flex: 0 0 auto;
+  margin: 0 0 -2px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.app-content .tabs [role="tab"][type="button"]:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.app-content .tabs [role="tab"][aria-selected="true"][type="button"] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.app-content .tab-panel {
+  padding-top: 12px;
+}
+
+/* A long text in a table cell: the beginning, and the rest on demand */
+.app-content .long-text summary {
+  list-style: none;
+}
+
+.app-content .long-text summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-content .long-text .more {
+  color: var(--color-link);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-content .long-text .less,
+.app-content .long-text[open] .preview,
+.app-content .long-text[open] .more:not(.less) {
+  display: none;
+}
+
+.app-content .long-text[open] .less {
+  display: inline;
+}
+
+.app-content .cell-list {
+  margin: 0;
+  padding-left: 16px;
+}

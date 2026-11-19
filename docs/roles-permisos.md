@@ -7,7 +7,7 @@ Hay cuatro roles (grupos de Django). El rol se revisa en la API; el frontend sol
 | **Administrador** | Superusuario de Django (`createsuperuser`). Entra al panel `/admin/`; no aparece en las listas de trabajadores |
 | **Gerente** | Administra trabajadores, unidades, refacciones, planes y asignaciones; ve todo |
 | **Mecánico** | Diagnostica y repara los reportes que se le asignaron; registra mantenimientos |
-| **Operador** | Reporta fallas y llena checklists de **sus** unidades |
+| **Operador** | Reporta fallas y llena checklists de **su** unidad (la que tiene asignada ahora) |
 
 ## Matriz
 
@@ -37,7 +37,7 @@ Hay cuatro roles (grupos de Django). El rol se revisa en la API; el frontend sol
 
 ## Reglas de asignación
 
-- Un operador solo puede reportar y hacer checklists de las **unidades que tiene asignadas** y que estén **activas**.
-- Una unidad puede tener varios operadores a la vez y un operador varias unidades (historial con fecha de inicio y fin).
+- Un operador solo puede reportar y hacer checklists de la **unidad que tiene asignada ahora** (asignación abierta, sin fecha de fin) y que esté **activa**. Al cambiarlo de unidad, la anterior deja de aparecerle.
+- Una unidad tiene **un solo operador a la vez** y un operador **una sola unidad a la vez**. Las asignaciones terminadas se conservan como historial (fecha de inicio y fin). Ver [reglas-negocio.md](reglas-negocio.md#operador-de-una-unidad-asignación-exclusiva).
 - Solo el mecánico asignado a un reporte puede verlo, diagnosticarlo y repararlo.
 - Cada usuario tiene **un** rol.

@@ -3,16 +3,18 @@ JSON API to manage units. Only users with the manager role can use it.
 
 A unit has an economic number (its identifier), a model (and through it a brand), a mileage,
 a history of license plates and a history of the operators it was assigned to.
-The current plate is the one with no end date; the same goes for the operators (a unit can
-have several at once, and an operator several units).
+The current plate is the one with no end date. The same goes for the operator, and it is
+exclusive: a unit has at most one open assignment and an operator at most one open unit
+(see fleet/assignments.py). Ending an assignment sets its end date; rows are never deleted.
 """
 import datetime
 import json
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Prefetch, Q
 from django.db.models import ProtectedError
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
 
 from accounts.models import User
@@ -21,6 +23,7 @@ from common.listing import date_range, dates_line, filter_lines, list_response
 from accounts.roles import OPERATOR_ROLE
 from locations.validation import check_state
 
+from .assignments import open_assignment_of_unit, operator_label, operator_taken_message, unit_taken_message
 from .models import Brand, FaultReport, LicensePlate, Unit, UnitLicensePlate, UnitModel, UnitOperator
 from .report_status import CLOSED_STATUSES
 
@@ -59,10 +62,6 @@ def units_queryset():
     )
 
 
-def operator_label(operator):
-    return f"{operator.get_full_name()} ({operator.enrollment_id})"
-
-
 def serialize_operator_assignment(assignment):
     return {
         "id": assignment.pk,
@@ -86,6 +85,8 @@ def serialize_unit(unit):
     # plate_assignments is prefetched, newest first; the current one has no end date
     assignments = list(unit.plate_assignments.all())
     current = next((a for a in assignments if a.end_date is None), None)
+    operators = list(unit.operator_assignments.all())
+    current_operator = next((a for a in operators if a.end_date is None), None)
     unit_model = unit.unit_model
     return {
         "id": unit.pk,
@@ -96,8 +97,9 @@ def serialize_unit(unit):
         "brand": {"id": unit_model.brand_id, "label": str(unit_model.brand)},
         "current_plate": serialize_assignment(current) if current else None,
         "plate_history": [serialize_assignment(a) for a in assignments],
-        # Newest first; the ones with no end date are assigned now
-        "operators": [serialize_operator_assignment(a) for a in unit.operator_assignments.all()],
+        # The one operator who has the unit now (or None), and the whole history, newest first
+        "current_operator": serialize_operator_assignment(current_operator) if current_operator else None,
+        "operators": [serialize_operator_assignment(a) for a in operators],
     }
 
 
@@ -130,103 +132,128 @@ def read_date(value):
         return None
 
 
-def validate_operators(data, unit, errors, clean):
-    """
-    Validate the changes to the operators of the unit: assignments to start (add_operators) and
-    assignments to end (end_operators). Problems go under the "operators" field.
-    """
-    clean["add_operators"] = []
-    clean["end_operators"] = []
-    adds, ends = data.get("add_operators") or [], data.get("end_operators") or []
-    if not isinstance(adds, list) or not isinstance(ends, list) or not all(
-        isinstance(item, dict) for item in adds + ends
-    ):
-        add_error(errors, "operators", "Datos de operadores no válidos.")
-        return
-    today = datetime.date.today()
+def read_object(data, key, errors):
+    """The optional object under `key` ({} when absent or null; None when it is not an object)."""
+    value = data.get(key)
+    if value in (None, ""):
+        return {}
+    if not isinstance(value, dict):
+        add_error(errors, "operator", "Datos de operador no válidos.")
+        return None
+    return value
 
-    # Assignments to end: they must be assignments of this unit that are still in force
-    ending = {}  # operator id -> the end date being set
-    seen = set()
-    for item in ends:
+
+def validate_operator_change(data, unit, errors, clean):
+    """
+    Validate the change of operator. The request may send:
+      - end_operator {assignment_id, end_date}: end the open assignment of the unit;
+      - new_operator {operator_id, start_date}: open a new one.
+    Both together reassign the unit (the change of operator), saved in one transaction.
+    Problems go under the "operator" field.
+    """
+    clean["end_operator"] = None
+    clean["new_operator"] = None
+    ending, starting = read_object(data, "end_operator", errors), read_object(data, "new_operator", errors)
+    if ending is None or starting is None:
+        return
+    today = timezone.localdate()
+
+    # Ending: it must be the open assignment of this unit
+    ended = None
+    if ending:
         assignment = None
         if unit is not None:
             try:
                 assignment = unit.operator_assignments.select_related("operator").filter(
-                    pk=int(item.get("assignment_id")), end_date__isnull=True
+                    pk=int(ending.get("assignment_id")), end_date__isnull=True
                 ).first()
             except (TypeError, ValueError):
                 pass
+        end_date = read_date(ending.get("end_date"))
         if assignment is None:
-            add_error(errors, "operators", "Una asignación que se quiere terminar no existe o ya terminó.")
-            continue
-        if assignment.pk in seen:
-            continue
-        seen.add(assignment.pk)
-        name = operator_label(assignment.operator)
-        end_date = read_date(item.get("end_date"))
-        if end_date is None:
-            add_error(errors, "operators", f"{name}: ingresa una fecha de fin válida.")
+            add_error(errors, "operator", "La asignación que se quiere terminar no existe o ya terminó.")
+        elif end_date is None:
+            add_error(errors, "operator", "Ingresa una fecha de fin válida.")
         elif end_date > today:
-            add_error(errors, "operators", f"{name}: la fecha de fin no puede ser futura.")
+            add_error(errors, "operator", "La fecha de fin no puede ser futura.")
         elif end_date < assignment.start_date:
             add_error(
                 errors,
-                "operators",
-                f"{name}: la fecha de fin no puede ser anterior al inicio de la asignación ({assignment.start_date.isoformat()}).",
+                "operator",
+                f"La fecha de fin no puede ser anterior al inicio de la asignación ({assignment.start_date.isoformat()}).",
             )
         else:
-            clean["end_operators"].append((assignment, end_date))
-            ending[assignment.operator_id] = end_date
+            ended = (assignment, end_date)
+            clean["end_operator"] = ended
+    if ending and ended is None:
+        return  # a reassignment whose first half is wrong: do not judge the second half yet
 
-    # Assignments to start: active operators, not already having this unit
-    added = set()
-    for item in adds:
-        operator = None
-        try:
-            operator = User.objects.filter(
-                pk=int(item.get("operator_id")), role__name=OPERATOR_ROLE, is_active=True
-            ).first()
-        except (TypeError, ValueError):
-            pass
-        if operator is None:
-            add_error(errors, "operators", "Elige un operador activo.")
-            continue
-        name = operator_label(operator)
-        if operator.pk in added:
-            add_error(errors, "operators", f"{name}: está repetido en la lista.")
-            continue
-        added.add(operator.pk)
-        start_date = read_date(item.get("start_date"))
-        if start_date is None:
-            add_error(errors, "operators", f"{name}: ingresa una fecha de inicio válida.")
-            continue
-        if start_date > today:
-            add_error(errors, "operators", f"{name}: la fecha de inicio no puede ser futura.")
-            continue
-        has_it_now = (
-            unit is not None
-            and unit.operator_assignments.filter(operator=operator, end_date__isnull=True).exists()
-        )
-        if has_it_now and operator.pk not in ending:
-            add_error(errors, "operators", f"{name}: ya tiene asignada esta unidad.")
-        elif operator.pk in ending and start_date < ending[operator.pk]:
+    if not starting:
+        return
+    operator = None
+    try:
+        operator = User.objects.filter(
+            pk=int(starting.get("operator_id")), role__name=OPERATOR_ROLE, is_active=True
+        ).first()
+    except (TypeError, ValueError):
+        pass
+    if operator is None:
+        add_error(errors, "operator", "Elige un operador activo.")
+        return
+    start_date = read_date(starting.get("start_date"))
+    if start_date is None:
+        add_error(errors, "operator", "Ingresa una fecha de inicio válida.")
+        return
+    if start_date > today:
+        add_error(errors, "operator", "La fecha de inicio no puede ser futura.")
+        return
+
+    # The unit must be free, unless its open assignment is the one being ended in this request
+    if ended is not None:
+        if start_date < ended[1]:
             add_error(
                 errors,
-                "operators",
-                f"{name}: la nueva asignación no puede empezar antes de que termine la anterior ({ending[operator.pk].isoformat()}).",
+                "operator",
+                f"El nuevo operador no puede empezar antes de que termine el anterior ({ended[1].isoformat()}).",
             )
-        else:
-            clean["add_operators"].append((operator, start_date))
+            return
+    elif unit is not None:
+        message = unit_taken_message(unit)
+        if message:
+            add_error(errors, "operator", message)
+            return
+    # The operator must not have another unit open (the assignment ended here does not count)
+    message = operator_taken_message(operator, exclude_pk=ended[0].pk if ended else None)
+    if message:
+        add_error(errors, "operator", message)
+        return
+    clean["new_operator"] = (operator, start_date)
 
 
-def save_operator_changes(unit, clean):
-    """Apply the validated changes. Ending comes first so an operator can start again the same day."""
-    for assignment, end_date in clean["end_operators"]:
+def save_operator_change(unit, clean):
+    """Apply the validated change. Ending comes first, so the new assignment can open the same day."""
+    if clean["end_operator"] is not None:
+        assignment, end_date = clean["end_operator"]
         assignment.end_date = end_date
         assignment.save(update_fields=["end_date"])
-    for operator, start_date in clean["add_operators"]:
+    if clean["new_operator"] is not None:
+        operator, start_date = clean["new_operator"]
         UnitOperator.objects.create(unit=unit, operator=operator, start_date=start_date)
+
+
+def operator_race_error(unit, clean):
+    """
+    The database refused an assignment that passed validation: someone assigned the same unit or
+    operator in the meantime. Explain who has it now.
+    """
+    message = ""
+    if clean["new_operator"] is not None:
+        operator = clean["new_operator"][0]
+        message = (unit_taken_message(unit) if unit is not None else "") or operator_taken_message(operator)
+    return JsonResponse(
+        {"errors": {"operator": [message or "Otra persona cambió esta asignación. Recarga la página."]}},
+        status=400,
+    )
 
 
 def validate_unit(data, plate_required, unit=None):
@@ -284,7 +311,7 @@ def validate_unit(data, plate_required, unit=None):
             add_error(errors, "plate_start_date", "Ingresa una fecha válida.")
         clean["plate"] = {"state": state, "identifier": identifier, "start_date": start_date}
 
-    validate_operators(data, unit, errors, clean)
+    validate_operator_change(data, unit, errors, clean)
 
     # Active or not (when the request does not say, an existing unit keeps what it has)
     raw_active = data.get("is_active", unit.is_active if unit is not None else True)
@@ -297,8 +324,18 @@ def validate_unit(data, plate_required, unit=None):
             status__name__in=CLOSED_STATUSES
         ).exists():
             add_error(errors, "is_active", "No se puede desactivar: la unidad tiene reportes de fallas abiertos.")
-        if clean["add_operators"]:
-            add_error(errors, "operators", "No se pueden asignar operadores a una unidad inactiva.")
+        if clean["new_operator"] is not None:
+            add_error(errors, "operator", "No se puede asignar un operador a una unidad inactiva.")
+        # An inactive unit cannot keep an operator: that operator could not get another unit
+        current = open_assignment_of_unit(unit) if unit is not None else None
+        ending = clean["end_operator"]
+        if current is not None and (ending is None or ending[0].pk != current.pk):
+            add_error(
+                errors,
+                "is_active",
+                f"No se puede desactivar: la unidad tiene asignado a {operator_label(current.operator)}. "
+                "Quita primero al operador.",
+            )
     return errors, clean
 
 
@@ -398,7 +435,7 @@ def units(request):
                     ("Marca", 1.6, lambda u: u["brand"]["label"]),
                     ("Modelo", 1.6, lambda u: u["unit_model"]["label"]),
                     ("Kilometraje", 1.2, lambda u: u["mileage"]),
-                    ("Operadores vigentes", 3, lambda u: ", ".join(o["operator"]["label"] for o in u["operators"] if o["end_date"] is None) or "-"),
+                    ("Operador", 3, lambda u: u["current_operator"]["operator"]["label"] if u["current_operator"] else "-"),
                 ],
             },
         )
@@ -422,9 +459,11 @@ def units(request):
                 is_active=clean["is_active"],
             )
             assign_plate(unit, clean["plate"])
-            save_operator_changes(unit, clean)
+            save_operator_change(unit, clean)
     except PlateConflict as exc:
         return JsonResponse({"errors": {exc.field: [exc.message]}}, status=400)
+    except IntegrityError:
+        return operator_race_error(None, clean)
     return JsonResponse({"unit": serialize_unit(units_queryset().get(pk=unit.pk))}, status=201)
 
 
@@ -476,16 +515,33 @@ def unit_detail(request, pk):
             unit.save()
             if clean["plate"] is not None:
                 assign_plate(unit, clean["plate"])
-            save_operator_changes(unit, clean)
+            save_operator_change(unit, clean)
     except PlateConflict as exc:
         return JsonResponse({"errors": {exc.field: [exc.message]}}, status=400)
+    except IntegrityError:
+        return operator_race_error(unit, clean)
     return JsonResponse({"unit": serialize_unit(units_queryset().get(pk=unit.pk))})
 
 
 @manager_required
 @require_GET
 def catalogs(request):
-    """Options for the unit form: brands, models (each with its brand) and the active operators."""
+    """Options for the unit form: brands, models and the operators without a unit (plus the current one).
+
+    Operators that can be assigned are active and have no open unit. With ?unidad=<id>, that unit's
+    current operator is included too, marked "current".
+    """
+    busy = UnitOperator.objects.filter(end_date__isnull=True).values("operator_id")
+    free = Q(role__name=OPERATOR_ROLE, is_active=True) & ~Q(pk__in=busy)
+    current_id = None
+    unit_id = request.GET.get("unidad", "").strip()
+    if unit_id.isdigit():
+        current_id = (
+            UnitOperator.objects.filter(unit_id=int(unit_id), end_date__isnull=True)
+            .values_list("operator_id", flat=True)
+            .first()
+        )
+    operators = User.objects.filter(free | Q(pk=current_id)) if current_id else User.objects.filter(free)
     return JsonResponse(
         {
             "brands": [{"id": b.pk, "label": str(b)} for b in Brand.objects.order_by("name")],
@@ -494,10 +550,8 @@ def catalogs(request):
                 for m in UnitModel.objects.order_by("name")
             ],
             "operators": [
-                {"id": o.pk, "label": operator_label(o)}
-                for o in User.objects.filter(role__name=OPERATOR_ROLE, is_active=True).order_by(
-                    "enrollment_id"
-                )
+                {"id": o.pk, "label": operator_label(o), "current": o.pk == current_id}
+                for o in operators.order_by("enrollment_id")
             ],
         }
     )

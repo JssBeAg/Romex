@@ -28,7 +28,7 @@ docker compose exec backend python manage.py createsuperuser
 
 Entra a <http://localhost:3000> con la matrícula del superusuario. El panel de Django está en <http://localhost:8000/admin/>.
 
-- **Usuarios de prueba**, uno por rol: `docker compose exec backend python manage.py seed_e2e` (solo con `DJANGO_DEBUG=1`).
+- **Usuarios de prueba**, uno por rol: `docker compose exec backend python manage.py seed_e2e` (solo con `DJANGO_DEBUG=1` y en una base de pruebas: no toca cuentas reales con las mismas matrículas).
 - **Sin internet**: los estados y municipios vienen del INEGI. Para trabajar sin conexión usa `python manage.py inegi_falso` y `INEGI_API_URL=http://localhost:8777/wscatgeo/v2`.
 - **Pruebas**: `docker compose exec backend python manage.py test tests`.
 

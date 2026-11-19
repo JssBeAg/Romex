@@ -17,7 +17,7 @@ const LABELS: Record<string, string> = {
   plate_identifier: "Placa",
   plate_start_date: "Vigente desde",
   plate: "Placa",
-  operators: "Operadores asignados",
+  operator: "Operador",
 };
 
 type Props = {
@@ -41,11 +41,12 @@ export default function UnitForm({ unit, onSubmit, onSaved, onCancel }: Props) {
   const [plateIdentifier, setPlateIdentifier] = useState("");
   const [plateStart, setPlateStart] = useState(today());
 
-  // Changes to the operators, applied when the form is saved
-  const [addOps, setAddOps] = useState<{ operator_id: string; start_date: string }[]>([]);
-  const [endOps, setEndOps] = useState<Record<number, string>>({}); // assignment id -> end date
+  // Change of operator, applied when the form is saved. With a current operator the manager
+  // either changes it (ends it and opens the new one the same day) or removes it (ends it).
+  const current = unit?.current_operator ?? null;
+  const [operatorMode, setOperatorMode] = useState<"keep" | "change" | "remove">("keep");
   const [newOperatorId, setNewOperatorId] = useState("");
-  const [newOperatorStart, setNewOperatorStart] = useState(today());
+  const [operatorDate, setOperatorDate] = useState(today()); // end of the current one and/or start of the new one
 
   const { states: stateNames, error: statesError } = useStates();
   const [catalogs, setCatalogs] = useState<UnitCatalogs | null>(null);
@@ -67,14 +68,12 @@ export default function UnitForm({ unit, onSubmit, onSaved, onCancel }: Props) {
             start_date: plateStart,
           }
         : null,
-    add_operators: addOps.map((entry) => ({
-      operator_id: Number(entry.operator_id),
-      start_date: entry.start_date,
-    })),
-    end_operators: Object.entries(endOps).map(([id, date]) => ({
-      assignment_id: Number(id),
-      end_date: date,
-    })),
+    end_operator:
+      current && operatorMode !== "keep" ? { assignment_id: current.id, end_date: operatorDate } : null,
+    new_operator:
+      newOperatorId && (!current || operatorMode === "change")
+        ? { operator_id: Number(newOperatorId), start_date: operatorDate }
+        : null,
   };
   const feedback = useFormFeedback({
     payload: input,
@@ -83,11 +82,11 @@ export default function UnitForm({ unit, onSubmit, onSaved, onCancel }: Props) {
   });
 
   useEffect(() => {
-    getUnitCatalogs().then((res) => {
+    getUnitCatalogs(unit?.id).then((res) => {
       if (res.ok && res.data) setCatalogs(res.data);
       else setGeneralError(res.error ?? "No se pudieron cargar los catálogos");
     });
-  }, []);
+  }, [unit?.id]);
 
   const modelsOfBrand = catalogs?.models.filter((m) => String(m.brand_id) === brandId) ?? [];
 
@@ -107,158 +106,141 @@ export default function UnitForm({ unit, onSubmit, onSaved, onCancel }: Props) {
 
   const fieldErrors = feedback.fieldErrors;
 
-  // Operators that can still be added: not assigned now (unless that is being ended) nor already in the list
-  const assignedNow = new Set(
-    (unit?.operators ?? [])
-      .filter((a) => a.end_date === null && endOps[a.id] === undefined)
-      .map((a) => a.operator.id)
-  );
-  const availableOperators = (catalogs?.operators ?? []).filter(
-    (o) => !assignedNow.has(o.id) && !addOps.some((entry) => entry.operator_id === String(o.id))
-  );
-
-  function addOperator() {
-    if (!newOperatorId) return;
-    setAddOps((previous) => [...previous, { operator_id: newOperatorId, start_date: newOperatorStart }]);
+  function chooseOperatorMode(mode: "keep" | "change" | "remove") {
+    setOperatorMode(mode);
     setNewOperatorId("");
-    feedback.touch("operators");
+    setOperatorDate(today());
+    feedback.touch("operator");
   }
 
-  function startEnding(assignmentId: number) {
-    setEndOps((previous) => ({ ...previous, [assignmentId]: today() }));
-    feedback.touch("operators");
-  }
-
-  function undoEnding(assignmentId: number) {
-    setEndOps((previous) => {
-      const next = { ...previous };
-      delete next[assignmentId];
-      return next;
-    });
-  }
+  // The selector offers the operators without a unit; the current one is shown but cannot be chosen
+  const operatorOptions = catalogs?.operators ?? [];
+  const operatorSelect = (
+    <label>
+      {current ? "Nuevo operador" : "Operador"}{" "}
+      <select
+        id="new_operator"
+        data-field="operator"
+        value={newOperatorId}
+        onChange={(e) => {
+          setNewOperatorId(e.target.value);
+          feedback.touch("operator");
+        }}
+      >
+        <option value="">{current ? "Elige un operador" : "Sin operador"}</option>
+        {operatorOptions.map((option) => (
+          <option key={option.id} value={option.id} disabled={option.current}>
+            {option.current ? `${option.label} (actual)` : option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const operatorDateInput = (label: string) => (
+    <label>
+      {label}{" "}
+      <input
+        id="operator_date"
+        type="date"
+        data-field="operator"
+        min={current?.start_date}
+        max={today()}
+        value={operatorDate}
+        onChange={(e) => setOperatorDate(e.target.value)}
+      />
+    </label>
+  );
 
   const operatorsSection = (
     <fieldset>
-      <legend>Operadores asignados</legend>
+      <legend>Operador</legend>
       <div className="span-all">
         <p className="hint">
-          Una unidad puede tener varios operadores a la vez, y un operador varias unidades. Solo los
-          operadores asignados pueden reportar fallas y llenar checklists de la unidad. Los cambios
-          se aplican al guardar.
+          Una unidad tiene un solo operador a la vez, y un operador una sola unidad. Solo ese operador
+          puede reportar fallas y llenar checklists de la unidad. Los cambios se aplican al guardar.
         </p>
 
-        {unit && unit.operators.length > 0 && (
-          <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Operador</th>
-                <th>Desde</th>
-                <th>Hasta</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unit.operators.map((assignment) => {
-                const active = assignment.end_date === null;
-                const pendingEnd = endOps[assignment.id];
-                return (
-                  <tr key={assignment.id}>
-                    <td>{assignment.operator.label}</td>
-                    <td>{assignment.start_date}</td>
-                    <td>
-                      {!active ? (
-                        assignment.end_date
-                      ) : pendingEnd !== undefined ? (
-                        <input
-                          type="date"
-                          aria-label={`Fecha de fin de ${assignment.operator.label}`}
-                          data-field="operators"
-                          min={assignment.start_date}
-                          max={today()}
-                          value={pendingEnd}
-                          onChange={(e) =>
-                            setEndOps((previous) => ({ ...previous, [assignment.id]: e.target.value }))
-                          }
-                        />
-                      ) : (
-                        "Vigente"
-                      )}
-                    </td>
-                    <td>
-                      {active &&
-                        (pendingEnd === undefined ? (
-                          <button type="button" onClick={() => startEnding(assignment.id)}>
-                            Terminar asignación
-                          </button>
-                        ) : (
-                          <button type="button" onClick={() => undoEnding(assignment.id)}>
-                            Deshacer
-                          </button>
-                        ))}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
+        {current ? (
+          <p>
+            Operador actual: <strong>{current.operator.label}</strong>, desde {current.start_date}.
+          </p>
+        ) : (
+          editing && <p>La unidad no tiene operador.</p>
         )}
-        {unit && unit.operators.length === 0 && <p>La unidad no ha tenido operadores asignados.</p>}
 
-        {addOps.map((entry, index) => (
-          <div key={entry.operator_id} className="assign-row">
-            <strong>
-              {catalogs?.operators.find((o) => String(o.id) === entry.operator_id)?.label ?? "Operador"}
-            </strong>
-            <label>
-              Desde{" "}
-              <input
-                type="date"
-                data-field="operators"
-                max={today()}
-                value={entry.start_date}
-                onChange={(e) =>
-                  setAddOps((previous) =>
-                    previous.map((item, i) => (i === index ? { ...item, start_date: e.target.value } : item))
-                  )
-                }
-              />
-            </label>
-            <button type="button" onClick={() => setAddOps((previous) => previous.filter((_, i) => i !== index))}>
-              Quitar
+        {current && operatorMode === "keep" && (
+          <div className="assign-row">
+            <button type="button" onClick={() => chooseOperatorMode("change")}>
+              Cambiar de operador
+            </button>
+            <button type="button" onClick={() => chooseOperatorMode("remove")}>
+              Quitar operador
             </button>
           </div>
-        ))}
+        )}
 
-        <div className="assign-row">
-          <select
-            id="new_operator"
-            aria-label="Operador a asignar"
-            data-field="operators"
-            value={newOperatorId}
-            onChange={(e) => setNewOperatorId(e.target.value)}
-          >
-            <option value="">Elige un operador</option>
-            {availableOperators.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <input
-            type="date"
-            aria-label="Fecha de inicio de la asignación"
-            data-field="operators"
-            max={today()}
-            value={newOperatorStart}
-            onChange={(e) => setNewOperatorStart(e.target.value)}
-          />
-          <button type="button" onClick={addOperator} disabled={!newOperatorId}>
-            Agregar operador
-          </button>
-        </div>
-        {fieldErrors("operators")}
+        {current && operatorMode === "change" && (
+          <div className="assign-row">
+            {operatorSelect}
+            {operatorDateInput("A partir de")}
+            <button type="button" onClick={() => chooseOperatorMode("keep")}>
+              Cancelar cambio
+            </button>
+          </div>
+        )}
+        {current && operatorMode === "change" && (
+          <p className="hint">
+            {current.operator.label} dejará la unidad en esa fecha y el nuevo operador la tendrá desde ese día.
+          </p>
+        )}
+
+        {current && operatorMode === "remove" && (
+          <div className="assign-row">
+            {operatorDateInput(`${current.operator.label} deja la unidad el`)}
+            <button type="button" onClick={() => chooseOperatorMode("keep")}>
+              No quitar
+            </button>
+          </div>
+        )}
+
+        {!current && (
+          <div className="assign-row">
+            {operatorSelect}
+            {operatorDateInput("Desde")}
+          </div>
+        )}
+        {fieldErrors("operator")}
+
+        {editing && (
+          <>
+            <h3>Historial de operadores</h3>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Operador</th>
+                    <th>Desde</th>
+                    <th>Hasta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unit.operators.length === 0 && (
+                    <tr>
+                      <td colSpan={3}>La unidad no ha tenido operadores.</td>
+                    </tr>
+                  )}
+                  {unit.operators.map((assignment) => (
+                    <tr key={assignment.id}>
+                      <td>{assignment.operator.label}</td>
+                      <td>{assignment.start_date}</td>
+                      <td>{assignment.end_date ?? "Actual"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </fieldset>
   );

@@ -83,6 +83,61 @@ def dates_line(request):
     return ("Periodo", f"{fmt(start) if start else 'inicio'} al {fmt(end) if end else 'hoy'}")
 
 
+def order_rows(rows, request, sorts, default):
+    """
+    order_by() for rows already in memory (dicts): `sorts` maps a column name to a function that
+    gives the sort key of a row. The original order breaks ties (sorting is stable).
+    """
+    raw = request.GET.get("order", "").strip()
+    name = raw.lstrip("-")
+    if name not in sorts:
+        raw = default
+        name = default.lstrip("-")
+    return sorted(rows, key=sorts[name], reverse=raw.startswith("-"))
+
+
+def page_response(request, rows, *, key, extra=None):
+    """The JSON page of rows that are already serialized and ordered."""
+    page_number, page_size = page_numbers(request)
+    paginator = Paginator(rows, page_size)
+    page = paginator.get_page(page_number)
+    return JsonResponse(
+        {
+            **(extra or {}),
+            key: list(page.object_list),
+            "pagination": {
+                "page": page.number,
+                "pages": paginator.num_pages,
+                "page_size": page_size,
+                "total": paginator.count,
+            },
+        }
+    )
+
+
+def export_pdf(request, export, rows):
+    """The PDF of serialized rows, as list_response makes it."""
+    return pdf.list_pdf(
+        request.user,
+        export["title"],
+        export.get("filters", []),
+        [(header, weight) for header, weight, _ in export["columns"]],
+        [[getter(row) for _, _, getter in export["columns"]] for row in rows],
+        landscape_mode=export.get("landscape", True),
+    )
+
+
+def rows_response(request, rows, *, key, sorts, default, export=None, extra=None):
+    """
+    list_response() for rows computed in memory (already serialized dicts): lists that are
+    gathered from several tables or added up, and are always small (one unit's history).
+    """
+    rows = order_rows(rows, request, sorts, default)
+    if wants_pdf(request) and export is not None:
+        return export_pdf(request, export, rows)
+    return page_response(request, rows, key=key, extra=extra)
+
+
 def list_response(
     request,
     queryset,
@@ -103,15 +158,7 @@ def list_response(
     queryset = order_by(queryset, request, sorts, default)
 
     if wants_pdf(request) and export is not None:
-        rows = [serialize(obj) for obj in queryset]
-        return pdf.list_pdf(
-            request.user,
-            export["title"],
-            export.get("filters", []),
-            [(header, weight) for header, weight, _ in export["columns"]],
-            [[getter(row) for _, _, getter in export["columns"]] for row in rows],
-            landscape_mode=export.get("landscape", True),
-        )
+        return export_pdf(request, export, [serialize(obj) for obj in queryset])
 
     page_number, page_size = page_numbers(request)
     paginator = Paginator(queryset, page_size)

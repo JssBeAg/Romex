@@ -12,7 +12,7 @@
 ## Backend
 
 - Un módulo `*_api.py` por recurso en `fleet/`; las vistas son funciones con los decoradores de permisos de `accounts`.
-- Las listas se construyen siempre con `common.listing.list_response(...)`: así heredan búsqueda, orden, fechas, paginación y PDF. No se paginan a mano.
+- Las listas se construyen siempre con `common.listing.list_response(...)`: así heredan búsqueda, orden, fechas, paginación y PDF. No se paginan a mano. Si la lista se arma en memoria (junta varias tablas o suma, como las secciones del kardex), se usa `rows_response(...)`, que da el mismo orden, paginación y PDF.
 - Los PDF se hacen con `common/pdf.py` (`list_pdf`, `sheet_pdf`), que además registra la exportación en la bitácora.
 - Las altas y ediciones aceptan `?validar=1` (validar sin guardar). Los errores se devuelven como `{"errors": {campo: [mensajes]}}`.
 - Lo calculable **no se guarda** (estatus de reportes, existencias, vencimientos preventivos).

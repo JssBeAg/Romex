@@ -2,6 +2,67 @@
 
 Cada entrega agrega una entrada arriba. Formato: fecha, qué cambió y qué hay que hacer al actualizar.
 
+## Entrega 23 — Kardex organizado por tema
+
+**Cambios**
+- **Antes:** el kardex de una unidad metía todo en una sola lista cronológica, «Historial», y el detalle de cada mantenimiento iba como texto de varias líneas en una celda.
+- **Ahora:** arriba siguen los datos, el resumen y el preventivo. Debajo hay **una pestaña por tema**, cada una con su propia tabla y sus columnas:
+  - **Mantenimientos:** responsables, refacciones, reparación terminada, reporte y diagnóstico con enlace, causa y observaciones, cada uno en su columna.
+  - **Fallas:** el reporte con su estatus y su diagnóstico (causa, gravedad, ¿puede operar?).
+  - **Checklists:** el resultado y qué falló.
+  - **Refacciones cambiadas.**
+  - **Operadores y mecánicos:** quién la tuvo o la atendió, desde y hasta.
+  - **Placas y cambios de datos:** campo, antes, después, quién y cuándo.
+  - **Línea de tiempo:** la vista cronológica de antes, ahora secundaria, con filtro por tipo de evento y una línea por evento.
+- Cada pestaña funciona como las demás listas: búsqueda, *Desde/Hasta*, sus filtros (tipo de servicio y reparación terminada, estatus, resultado, rol, usuario, tipo de evento), orden por columna (lo más reciente primero), paginación en el servidor y PDF con los filtros puestos. Los textos largos se recortan con «ver más».
+- **Exportar kardex completo** genera un PDF con una tabla por sección, en lugar de la tabla mezclada de antes.
+- **API:** `kardex/<id>/` queda para el encabezado y el PDF completo. Se agregan `kardex/<id>/mantenimientos/`, `fallas/`, `checklists/`, `refacciones/`, `operadores/` (operadores y mecánicos), `cambios/` y `linea-de-tiempo/`. Ya no devuelve `events` ni `parts_used`. Ver [api.md](docs/api.md#kardex-de-una-unidad).
+- **PDF (de todo el sistema):** una fila con un texto muy largo ahora continúa en la página siguiente. Antes rompía el PDF con un error 500.
+- `common/listing.py` agrega `rows_response()`: el mismo orden, paginación y PDF que `list_response()`, para listas armadas en memoria.
+- `seed_e2e` crea un mantenimiento preventivo en E2E-1 (una sola vez), para la prueba del kardex.
+- Pruebas: 260 de backend y 76 de navegador.
+
+**Al actualizar**
+- **No hay migraciones**: no hace falta borrar la base ni correr nada.
+
+**Lo que no se probó**
+- El contenido del PDF completo no se revisó página por página: solo que se genera, con todas las secciones y con textos muy largos.
+- Rendimiento con muchos datos. Las secciones de mantenimientos, fallas y checklists se paginan en la base. Refacciones, operadores y mecánicos, cambios y línea de tiempo se arman en memoria con todo el historial de la unidad, y luego se paginan.
+- En el navegador se probaron el cambio de pestaña, los filtros de Mantenimientos (tipo y fecha) y los PDF. Los filtros de las demás pestañas se probaron solo en el backend.
+
+## Entrega 22 — Un solo operador por unidad, con historial
+
+**Cambios**
+- La asignación unidad–operador ahora es **exclusiva**. Una unidad tiene **un solo operador a la vez** y un operador **una sola unidad a la vez**. Antes podía haber varios: un operador podía reportar fallas de un camión que no manejaba, y dos operadores podían «tener» la misma unidad. Lo garantizan la API, el panel de administración y la base de datos, con dos restricciones únicas parciales en `unidades_operadores`: `un_operador_abierto_por_unidad` y `una_unidad_abierta_por_operador`.
+- Si se intenta asignar una unidad ocupada o un operador que ya tiene otra, la respuesta es 400 y dice quién o qué unidad la tiene. El historial se conserva: **quitar operador** le pone fecha de fin a la asignación y no borra filas, y el panel de administración ya no permite borrar asignaciones.
+- **Cambiar de operador** termina la asignación actual y abre la nueva en una sola transacción. La API cambia: `add_operators` / `end_operators` (listas) se reemplazan por `new_operator` / `end_operator`, y las unidades devuelven `current_operator`.
+- Solo el operador con la asignación **abierta** reporta fallas y llena checklists de la unidad. Al anterior le desaparece de sus formularios, aunque puede seguir corrigiendo su reporte pendiente de esa unidad.
+- Una unidad **con operador no se puede desactivar**: primero hay que quitarlo.
+- **Pantallas**:
+  - El formulario de la unidad muestra al operador actual, con los botones **Cambiar de operador** y **Quitar operador**, y el **Historial de operadores** debajo.
+  - El selector solo ofrece operadores activos sin unidad. El actual aparece como «(actual)».
+  - La lista de unidades y el kardex muestran un solo operador.
+- **Kardex**: los eventos dicen «Asignada a *X*» y «Operador *X* dejó la unidad», con su periodo.
+- **`seed_e2e`**:
+  - Agrega `O3`, `O4`, `E2E-3` (de O3) y `E2E-4` (sin operador).
+  - **Se niega a correr si hay cuentas reales** con las matrículas de prueba. Antes les cambiaba la contraseña y les borraba foto, contactos y notificaciones.
+- Pruebas: 247 de backend y 75 de navegador.
+
+**Al actualizar**
+- **Hay migración de datos**: `fleet 0046` (datos) y `0047` (restricciones). **No hace falta borrar la base**, solo `python manage.py migrate`. Haz un respaldo antes.
+- Qué pasa con los datos anteriores:
+  1. Por cada unidad con varios operadores abiertos, queda abierta la asignación con la **fecha de inicio más reciente**; si empatan, la fila más nueva. Las demás se **cierran con fecha de fin = hoy** (hora de Ciudad de México).
+  2. Después se hace lo mismo con los operadores que tenían varias unidades abiertas. Por eso **algunas unidades pueden quedar sin operador**: revísalas en *Unidades* y asígnales uno.
+  3. No se borra ninguna fila y el historial queda en el kardex.
+  4. Una unidad que ya estaba **inactiva y conservaba operador** se queda así, y ese operador no puede recibir otra unidad. Al guardar esa unidad, el formulario pide quitarle el operador.
+- La migración de datos no tiene reversa. Revertir a `0045` quita las restricciones, pero las asignaciones cerradas siguen cerradas.
+
+**Lo que no se probó**
+- La carrera real entre dos guardados simultáneos sobre la misma unidad. Se probó la restricción de la base, la respuesta 400 cuando la base rechaza la asignación (simulada) y, en el navegador, dos pestañas abiertas que guardan una después de la otra.
+- Las restricciones del panel de administración se probaron llamando a `full_clean()` del modelo, no recorriendo el panel en el navegador.
+- La migración se probó con una copia de una base local con datos (una unidad con 2 operadores abiertos y 3 operadores con 3 unidades cada uno) y en las pruebas automáticas. No se probó con una base de producción.
+- El PDF del kardex se probó solo en cuanto a que se genera; no se revisó su contenido.
+
 ## Entrega 21 — Estados y municipios desde la API del INEGI
 
 **Cambios**

@@ -57,7 +57,9 @@ def constraints_of(model):
 def model_doc(model):
     meta = model._meta
     out = [f"### `{meta.db_table}`", ""]
-    description = (model.__doc__ or "").strip().split("\n\n")[0].replace("\n", " ")
+    # Whitespace collapsed: Python 3.13+ strips the docstring indentation and 3.12 does not, and the
+    # output must be the same with both (CI checks it)
+    description = " ".join((model.__doc__ or "").strip().split("\n\n")[0].split())
     if description and not description.startswith(model.__name__ + "("):
         out += [description, ""]
     out += ["| Columna | Tipo | Notas |", "|---|---|---|"]

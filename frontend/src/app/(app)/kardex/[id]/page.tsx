@@ -1,24 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import ExportButton from "@/components/ExportButton";
 import { useParams } from "next/navigation";
+import ExportButton from "@/components/ExportButton";
+import KardexSection, { LongText } from "@/components/KardexSection";
+import {
+  type KardexChange,
+  type KardexChecklist,
+  type KardexEvent,
+  type KardexFault,
+  type KardexHeader,
+  type KardexMaintenance,
+  type KardexPart,
+  type KardexPerson,
+  getKardex,
+} from "@/lib/kardex";
 import { MANAGER_ROLE } from "@/lib/roles";
-import { EVENT_LABELS, type Kardex, getKardex } from "@/lib/kardex";
 import { useRoleGuard } from "@/lib/useRoleGuard";
 
 const ALLOWED_ROLES = [MANAGER_ROLE];
 
-const money = (value: string) =>
-  Number(value).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+const money = (value: string) => Number(value).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+const yesNo = (value: boolean) => (value ? "Sí" : "No");
+
+// The sections, in the order of the tabs; the id is also the #hash of the address
+const TABS = [
+  { id: "mantenimientos", label: "Mantenimientos" },
+  { id: "fallas", label: "Fallas" },
+  { id: "checklists", label: "Checklists" },
+  { id: "refacciones", label: "Refacciones cambiadas" },
+  { id: "operadores", label: "Operadores y mecánicos" },
+  { id: "cambios", label: "Placas y cambios de datos" },
+  { id: "linea-de-tiempo", label: "Línea de tiempo" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+
+function List({ items }: { items: string[] }) {
+  if (items.length === 0) return <>—</>;
+  if (items.length === 1) return <>{items[0]}</>;
+  return (
+    <ul className="cell-list">
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
+}
 
 export default function KardexPage() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
   const { loading, allowed } = useRoleGuard(ALLOWED_ROLES);
-  const [kardex, setKardex] = useState<Kardex | null>(null);
+  const [kardex, setKardex] = useState<KardexHeader | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [tab, setTab] = useState<TabId>("mantenimientos");
 
   useEffect(() => {
     if (!allowed) return;
@@ -27,6 +63,28 @@ export default function KardexPage() {
       else setLoadError(res.error ?? "No se pudo cargar el kardex");
     });
   }, [allowed, id]);
+
+  // The tab in the address (#fallas...) survives a reload and can be linked
+  useEffect(() => {
+    const fromHash = window.location.hash.slice(1);
+    if (TABS.some((t) => t.id === fromHash)) setTab(fromHash as TabId);
+  }, []);
+
+  function choose(next: TabId) {
+    setTab(next);
+    window.history.replaceState(null, "", `#${next}`);
+  }
+
+  // Arrow keys move between the tabs (the usual keyboard pattern of a tab list)
+  function onTabKey(e: KeyboardEvent<HTMLDivElement>) {
+    const index = TABS.findIndex((t) => t.id === tab);
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = TABS[(index + step + TABS.length) % TABS.length].id;
+    choose(next);
+    document.getElementById(`tab-${next}`)?.focus();
+  }
 
   if (loading) return <p>Cargando...</p>;
 
@@ -52,7 +110,7 @@ export default function KardexPage() {
         <Link className="back-link" href="/kardex">Volver a la lista</Link>
       </p>
       <div className="list-actions">
-        <ExportButton path={`kardex/${id}/`} label="Ver kardex en PDF" />
+        <ExportButton path={`kardex/${id}/`} label="Exportar kardex completo" />
       </div>
       {loadError && <p role="alert">{loadError}</p>}
       {!kardex && !loadError && <p>Cargando...</p>}
@@ -74,12 +132,11 @@ export default function KardexPage() {
               </tr>
               <tr><th>Kilometraje actual</th><td>{unit.mileage} km</td></tr>
               <tr>
-                <th>Operadores asignados</th>
+                <th>Operador</th>
                 <td>
-                  {unit.operators
-                    .filter((assignment) => assignment.end_date === null)
-                    .map((assignment) => assignment.operator.label)
-                    .join(", ") || "Sin operadores asignados"}
+                  {unit.current_operator
+                    ? `${unit.current_operator.operator.label}, desde ${unit.current_operator.start_date}`
+                    : "Sin operador"}
                 </td>
               </tr>
             </tbody>
@@ -146,60 +203,231 @@ export default function KardexPage() {
             </div>
           )}
 
-          <h2>Refacciones cambiadas</h2>
-          {kardex.parts_used.length === 0 ? (
-            <p>A esta unidad todavía no se le ha cambiado ninguna refacción.</p>
-          ) : (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Refacción</th>
-                    <th>Piezas</th>
-                    <th>Veces</th>
-                    <th>Último cambio</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kardex.parts_used.map((part) => (
-                    <tr key={part.id}>
-                      <td>{part.label}</td>
-                      <td>{part.pieces}</td>
-                      <td>{part.times}</td>
-                      <td>{part.last_date}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="tabs" role="tablist" aria-label="Secciones del kardex" onKeyDown={onTabKey}>
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                id={`tab-${t.id}`}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                aria-controls={`panel-${t.id}`}
+                tabIndex={tab === t.id ? 0 : -1}
+                onClick={() => choose(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-          <h2>Historial</h2>
-          <div className="table-scroll"><table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Registro</th>
-                <th>Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {kardex.events.length === 0 && (
-                <tr>
-                  <td colSpan={4}>Esta unidad todavía no tiene historial.</td>
-                </tr>
-              )}
-              {kardex.events.map((event, index) => (
-                <tr key={`${event.type}-${index}`}>
-                  <td>{event.date}</td>
-                  <td>{EVENT_LABELS[event.type]}</td>
-                  <td>{event.link ? <Link href={event.link}>{event.title}</Link> : event.title}</td>
-                  <td style={{ whiteSpace: "pre-line" }}>{event.detail}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
+          {/* Only the open tab is mounted: each section asks the server for its rows when it is opened */}
+          <section className="tab-panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+            {tab === "mantenimientos" && (
+              <KardexSection<KardexMaintenance>
+                unitId={id}
+                section="mantenimientos"
+                rowsKey="maintenances"
+                title="Mantenimientos"
+                searchLabel="Buscar (refacción, responsable, causa u observaciones)"
+                filters={[
+                  { name: "tipo", label: "Tipo de servicio", all: "Todos", options: [{ id: "preventivo", label: "Preventivo" }, { id: "correctivo", label: "Correctivo" }] },
+                  { name: "terminada", label: "Reparación terminada", all: "Todas", options: [{ id: "si", label: "Sí" }, { id: "no", label: "No" }] },
+                ]}
+                rowKey={(m) => m.id}
+                empty="Sin mantenimientos con estos filtros."
+                columns={[
+                  { header: "Fecha", sort: "date", cell: (m) => m.date },
+                  { header: "Mantenimiento", cell: (m) => <Link href={`/mantenimientos/${m.id}`}>{m.folio}</Link> },
+                  { header: "Servicio", cell: (m) => <>{m.service_type}{m.plan && <div className="hint">{m.plan}</div>}</> },
+                  { header: "Km", sort: "mileage", cell: (m) => m.mileage },
+                  { header: "Costo", sort: "cost", cell: (m) => money(m.cost) },
+                  { header: "Responsables", cell: (m) => <List items={m.people} /> },
+                  { header: "Refacciones", cell: (m) => (m.parts.length ? <List items={m.parts.map((p) => `${p.label} × ${p.quantity}`)} /> : "Sin refacciones") },
+                  { header: "Reparación terminada", cell: (m) => (m.repair_completed === null ? "—" : yesNo(m.repair_completed)) },
+                  {
+                    header: "Reporte / diagnóstico",
+                    cell: (m) =>
+                      m.report || m.diagnosis ? (
+                        <>
+                          {m.report && <div><Link href={`/reportes/${m.report.id}`}>{m.report.label}</Link></div>}
+                          {m.diagnosis && <div><Link href={`/diagnosticos/${m.diagnosis.id}`}>{m.diagnosis.label}</Link></div>}
+                        </>
+                      ) : (
+                        "—"
+                      ),
+                  },
+                  { header: "Causa", cell: (m) => <LongText text={m.cause} /> },
+                  { header: "Observaciones", cell: (m) => <LongText text={m.observations} /> },
+                ]}
+              />
+            )}
+
+            {tab === "fallas" && (
+              <KardexSection<KardexFault>
+                unitId={id}
+                section="fallas"
+                rowsKey="faults"
+                title="Fallas"
+                searchLabel="Buscar (descripción, ubicación o causa)"
+                filters={[{ name: "estatus", label: "Estatus", all: "Todos", options: (page) => page?.statuses ?? [] }]}
+                rowKey={(r) => r.id}
+                empty="Sin reportes de falla con estos filtros."
+                columns={[
+                  { header: "Fecha", sort: "date", cell: (r) => r.date },
+                  { header: "Reporte", cell: (r) => <><Link href={`/reportes/${r.id}`}>{r.folio}</Link><div className="hint">{r.reported_by}</div></> },
+                  { header: "Ubicación", cell: (r) => r.location },
+                  { header: "Descripción", cell: (r) => <LongText text={r.description} /> },
+                  { header: "Estatus", sort: "status", cell: (r) => r.status },
+                  { header: "Mecánico", cell: (r) => <List items={r.mechanics} /> },
+                  { header: "Diagnóstico", cell: (r) => (r.diagnosis ? <Link href={`/diagnosticos/${r.diagnosis.id}`}>{r.diagnosis.folio}</Link> : "Sin diagnóstico") },
+                  { header: "Causa", cell: (r) => <LongText text={r.diagnosis?.cause} /> },
+                  { header: "Gravedad", cell: (r) => r.diagnosis?.severity ?? "—" },
+                  { header: "¿Puede operar?", cell: (r) => (r.diagnosis ? yesNo(r.diagnosis.unit_operable) : "—") },
+                ]}
+              />
+            )}
+
+            {tab === "checklists" && (
+              <KardexSection<KardexChecklist>
+                unitId={id}
+                section="checklists"
+                rowsKey="checklists"
+                title="Checklists"
+                searchLabel="Buscar (operador o viaje)"
+                filters={[{ name: "resultado", label: "Resultado", all: "Todos", options: [{ id: "ok", label: "Todo bien" }, { id: "fallas", label: "Con fallas" }] }]}
+                rowKey={(c) => c.id}
+                empty="Sin checklists con estos filtros."
+                columns={[
+                  { header: "Fecha", sort: "date", cell: (c) => c.date },
+                  { header: "Checklist", cell: (c) => <Link href={`/checklists/${c.id}`}>{c.folio}</Link> },
+                  { header: "Operador", cell: (c) => c.operator },
+                  { header: "Km", sort: "mileage", cell: (c) => c.mileage },
+                  {
+                    header: "Resultado",
+                    cell: (c) =>
+                      c.ok ? (
+                        <span className="status-badge ok">Todo bien</span>
+                      ) : (
+                        <span className="status-badge overdue">Con fallas: {c.failed_items.join(", ")}</span>
+                      ),
+                  },
+                  { header: "Viaje", cell: (c) => <LongText text={c.trip_description} /> },
+                ]}
+              />
+            )}
+
+            {tab === "refacciones" && (
+              <KardexSection<KardexPart>
+                unitId={id}
+                section="refacciones"
+                rowsKey="parts"
+                title="Refacciones cambiadas"
+                searchLabel="Buscar refacción"
+                rowKey={(p) => p.id}
+                empty="A esta unidad no se le ha cambiado ninguna refacción con estos filtros."
+                columns={[
+                  { header: "Refacción", sort: "part", cell: (p) => p.label },
+                  { header: "Piezas", sort: "pieces", cell: (p) => p.pieces },
+                  { header: "Veces", sort: "times", cell: (p) => p.times },
+                  { header: "Último cambio", sort: "last_date", cell: (p) => p.last_date },
+                ]}
+              />
+            )}
+
+            {tab === "operadores" && (
+              <KardexSection<KardexPerson>
+                unitId={id}
+                section="operadores"
+                rowsKey="people"
+                title="Operadores y mecánicos"
+                searchLabel="Buscar persona"
+                filters={[{ name: "rol", label: "Rol", all: "Todos", options: [{ id: "operador", label: "Operadores" }, { id: "mecanico", label: "Mecánicos" }] }]}
+                rowKey={(p) => p.id}
+                empty="Nadie ha tenido ni atendido esta unidad en ese periodo."
+                columns={[
+                  { header: "Rol", cell: (p) => p.role },
+                  { header: "Persona", sort: "person", cell: (p) => p.person },
+                  { header: "Desde", sort: "start_date", cell: (p) => p.start_date },
+                  { header: "Hasta", sort: "end_date", cell: (p) => p.end_date ?? "Actual" },
+                  { header: "Reporte", cell: (p) => (p.report ? <Link href={`/reportes/${p.report.id}`}>{p.report.label}</Link> : "—") },
+                ]}
+              />
+            )}
+
+            {tab === "cambios" && (
+              <>
+                <h3>Placas</h3>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Placa</th>
+                        <th>Estado</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {unit.plate_history.length === 0 && (
+                        <tr>
+                          <td colSpan={4}>Sin placas.</td>
+                        </tr>
+                      )}
+                      {unit.plate_history.map((p) => (
+                        <tr key={`${p.identifier}-${p.start_date}`}>
+                          <td>{p.identifier}</td>
+                          <td>{p.state}</td>
+                          <td>{p.start_date}</td>
+                          <td>{p.end_date ?? "Vigente"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <h3>Cambios de datos</h3>
+                <p className="hint">
+                  Cada corrección al número económico, modelo, kilometraje o si está activa. Las placas y los operadores
+                  tienen su propia tabla.
+                </p>
+                <KardexSection<KardexChange>
+                  unitId={id}
+                  section="cambios"
+                  rowsKey="changes"
+                  title="Cambios de datos"
+                  searchLabel="Buscar (campo o valor)"
+                  filters={[{ name: "usuario", label: "Usuario", all: "Todos", options: (page) => page?.users ?? [] }]}
+                  rowKey={(c) => c.id}
+                  empty="Los datos de la unidad no se han modificado con estos filtros."
+                  columns={[
+                    { header: "Fecha y hora", sort: "moment", cell: (c) => c.moment },
+                    { header: "Campo", sort: "field", cell: (c) => c.field },
+                    { header: "Antes", cell: (c) => <LongText text={c.old} /> },
+                    { header: "Después", cell: (c) => <LongText text={c.new} /> },
+                    { header: "Quién", cell: (c) => c.user },
+                  ]}
+                />
+              </>
+            )}
+
+            {tab === "linea-de-tiempo" && (
+              <KardexSection<KardexEvent>
+                unitId={id}
+                section="linea-de-tiempo"
+                rowsKey="events"
+                title="Línea de tiempo"
+                searchLabel="Buscar en la línea de tiempo"
+                filters={[{ name: "tipo", label: "Tipo de evento", all: "Todos", options: (page) => page?.types ?? [] }]}
+                rowKey={(e) => `${e.type}-${e.date}-${e.title}-${e.detail}`}
+                empty="Sin eventos con estos filtros."
+                columns={[
+                  { header: "Fecha", sort: "date", cell: (e) => e.date },
+                  { header: "Tipo", cell: (e) => e.type_label },
+                  { header: "Evento", cell: (e) => (e.link ? <Link href={e.link}>{e.title}</Link> : e.title) },
+                  { header: "Detalle", cell: (e) => <LongText text={e.detail} limit={120} /> },
+                ]}
+              />
+            )}
+          </section>
         </>
       )}
     </main>

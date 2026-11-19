@@ -160,8 +160,10 @@ class UnitLicensePlate(models.Model):
 
 class UnitOperator(models.Model):
     """
-    Which operator has a unit, and since when until when. No end date = has it now.
-    A unit can have several operators at once, and an operator several units.
+    Which operator has a unit, and since when until when. No end date = has it now (open).
+    Exclusive: a unit has at most one open assignment, and an operator at most one open unit.
+    Ending an assignment sets its end date; rows are kept, so the kardex shows who had the
+    unit and when.
     """
 
     unit = models.ForeignKey(
@@ -189,16 +191,46 @@ class UnitOperator(models.Model):
                 | models.Q(end_date__gte=models.F("start_date")),
                 name="operador_fin_no_antes_de_inicio",
             ),
-            # The same operator cannot be assigned twice to the same unit at the same time
+            # At most one open assignment per unit, and one open unit per operator
             models.UniqueConstraint(
-                fields=["unit", "operator"],
+                fields=["unit"],
                 condition=models.Q(end_date__isnull=True),
-                name="un_operador_vigente_por_unidad",
+                name="un_operador_abierto_por_unidad",
+            ),
+            models.UniqueConstraint(
+                fields=["operator"],
+                condition=models.Q(end_date__isnull=True),
+                name="una_unidad_abierta_por_operador",
             ),
         ]
 
     def __str__(self):
         return f"{self.unit} - {self.operator}"
+
+    def clean(self):
+        """Rules for the admin panel (the API checks the same ones in fleet/units_api.py)."""
+        from django.core.exceptions import ValidationError
+        from django.utils import timezone
+
+        from .assignments import operator_taken_message, unit_taken_message
+
+        errors = {}
+        today = timezone.localdate()
+        if self.start_date and self.start_date > today:
+            errors["start_date"] = "La fecha de inicio no puede ser futura."
+        if self.end_date:
+            if self.end_date > today:
+                errors["end_date"] = "La fecha de fin no puede ser futura."
+            elif self.start_date and self.end_date < self.start_date:
+                errors["end_date"] = "La fecha de fin no puede ser anterior a la de inicio."
+        elif self.unit_id and self.operator_id:
+            message = unit_taken_message(self.unit, exclude_pk=self.pk) or operator_taken_message(
+                self.operator, exclude_pk=self.pk
+            )
+            if message:
+                errors["__all__"] = message
+        if errors:
+            raise ValidationError(errors)
 
 
 class FaultReportStatus(models.Model):

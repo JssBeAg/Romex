@@ -230,7 +230,7 @@ def validate_worker(data, request_user, worker=None):
         if clean["role"] is not None and clean["role"] != worker.role:
             add_error(errors, "role_id", "No puedes cambiar tu propio rol.")
 
-    # An operator who still has units cannot stop being an operator
+    # An operator who still has a unit cannot stop being an operator
     if (
         worker is not None
         and clean["role"] is not None
@@ -238,7 +238,7 @@ def validate_worker(data, request_user, worker=None):
         and worker.unit_assignments.filter(end_date__isnull=True).exists()
     ):
         add_error(
-            errors, "role_id", "Tiene unidades asignadas: termina primero sus asignaciones en las unidades."
+            errors, "role_id", "Tiene una unidad asignada: termina primero su asignación en la unidad."
         )
 
     # The same for a mechanic who still has reports

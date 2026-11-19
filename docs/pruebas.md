@@ -6,7 +6,7 @@ Hay dos niveles: **pruebas del backend** (API, reglas de negocio) y **pruebas de
 
 ### Qué se prueba
 
-El backend tiene **220 pruebas automáticas** en `backend/tests/`. Llaman a la API igual que lo hace la interfaz (con sesión, roles y JSON), así que cubren las reglas de punta a punta, no solo funciones sueltas.
+El backend tiene **260 pruebas automáticas** en `backend/tests/`. Llaman a la API igual que lo hace la interfaz (con sesión, roles y JSON), así que cubren las reglas de punta a punta, no solo funciones sueltas.
 
 | Archivo | Cubre |
 |---|---|
@@ -22,7 +22,10 @@ El backend tiene **220 pruebas automáticas** en `backend/tests/`. Llaman a la A
 | `test_address_text.py` | Domicilio con estado y municipio del INEGI y colonia y calle como texto: se guardan tal cual, avisos por campo, estado o municipio inexistente rechazado, validación sin guardar, edición y tablas `colonias`/`calles` eliminadas |
 | `test_descriptions.py` | La descripción del reporte llega con el diagnóstico (y en su catálogo); la descripción del diagnóstico, con el mantenimiento correctivo (y en su catálogo); preventivo sin diagnóstico; las fichas PDF se generan |
 | `test_operability.py` | Unidad no apta para operar (diagnóstico «no puede operar» con reporte abierto): sale del formulario de checklist (operador y gerente) y se lista aparte, se rechaza en el servidor, vuelve al repararse o al corregir/eliminar el diagnóstico, y un checklist anterior sigue editable |
-| `test_kardex_changes.py` | Cambios de datos de la unidad en su kardex: antes y después, quién y cuándo, sin líneas si no cambió nada, orden, sin mezclar otras unidades, PDF y acceso solo del gerente |
+| `test_exclusive_operator.py` | Asignación exclusiva de operador: no se abre una segunda asignación para la misma unidad ni para el mismo operador (mensaje con quién la tiene, también con `?validar=1`); terminar pone fecha de fin sin borrar filas y rechaza fechas futuras, anteriores al inicio o inválidas; el cambio de operador cierra y abre en una transacción (si falla la apertura, la anterior sigue abierta); unidad con operador no se desactiva; el selector ofrece solo operadores libres más el actual; bitácora; un operador sin asignación abierta (o ya cerrada) no reporta ni hace checklist, pero corrige su reporte pendiente; kardex «Asignada a» / «dejó la unidad» y su PDF; restricciones de la base (`IntegrityError`) y del panel de administración; la migración de datos deja la asignación más reciente, cierra las demás con fecha de hoy, no pierde filas, desempata por la fila más nueva y es idempotente |
+| `test_kardex_changes.py` | Cambios de datos de la unidad en su kardex: una fila por campo con antes, después, quién y cuándo (sección *Cambios*) y un evento por guardado (línea de tiempo), sin líneas si no cambió nada, orden, filtros por usuario, fechas y texto, sin mezclar otras unidades, PDF y acceso solo del gerente en todas las secciones |
+| `test_kardex_physical.py` | Un mantenimiento correctivo trae en campos separados refacciones, responsables, falla, causa, reparación terminada, observaciones y enlaces a su reporte y diagnóstico; uno preventivo sin refacciones; la suma de refacciones; la falla con su diagnóstico en campos; PDF |
+| `test_kardex_sections.py` | Kardex por secciones: cada sección trae solo su tema y su unidad; filtros de mantenimientos (tipo, reparación terminada, fechas, texto), fallas (estatus), checklists (resultado y qué falló), operadores y mecánicos (rol, texto, periodo) y línea de tiempo (tipo, una línea por evento); orden y paginación; sin consultas por fila; unidad inexistente 404; PDF de cada sección con filtros y del kardex completo, también con textos muy largos |
 | `test_part_photos.py` | Fotografías de refacciones: proporciones (sin recorte, máx. 800 px, sin agrandar), formatos y tamaños, metadatos, nombre aleatorio, solo gerente, reemplazo y borrado de archivos, bitácora, panel sin subida cruda |
 | `test_contacts.py` | Catálogo de códigos (carga, códigos compartidos, solo activos, CHECK de dígitos), teléfono principal con código (dígitos, 15 dígitos, separadores, obligatorio), contactos adicionales (etiqueta por defecto, máximo 3, duplicados, correos, sincronizar por `id`, ajeno, validación sin guardar, restricciones de la base, bitácora, borrado en cascada, solo gerente) |
 | `test_dashboard_audit_roles.py` | Dashboard y sus periodos, bitácora (quién/qué, sin contraseñas), matriz de permisos por rol |
@@ -58,7 +61,7 @@ Django crea una base temporal (`test_romex`) y la borra al terminar; tus datos n
 
 ## Pruebas de navegador (frontend)
 
-Están en `frontend/e2e/` y usan [Playwright](https://playwright.dev). Abren un Chromium real, entran con usuarios de prueba y hacen lo que haría una persona. Son **72 pruebas**:
+Están en `frontend/e2e/` y usan [Playwright](https://playwright.dev). Abren un Chromium real, entran con usuarios de prueba y hacen lo que haría una persona. Son **76 pruebas**:
 
 | Archivo | Cubre |
 |---|---|
@@ -72,10 +75,11 @@ Están en `frontend/e2e/` y usan [Playwright](https://playwright.dev). Abren un 
 | `08-fotos.spec.ts` | Iniciales sin fotografía, archivo inválido rechazado en pantalla, subir y ver la foto (lista y encabezado), quién puede pedirla, quitarla |
 | `11-ciudades.spec.ts` | Estados y municipios del INEGI (simulado): 32 estados, cambiar de estado reemplaza los municipios, colonia/calle son texto y la placa también elige estado |
 | `12-domicilio.spec.ts` | Alta de trabajador con el +52 por defecto sin tocarlo (se guarda sin «Elige una opción válida») y con colonia y calle escritas a mano; se comprueba abriendo al trabajador |
-| `15-kardex-cambios.spec.ts` | Se corrige el kilometraje de una unidad por pantalla y aparece en su kardex como «Cambio de datos» con el antes, el después y quién |
+| `15-kardex-cambios.spec.ts` | Kardex por secciones: se corrige el kilometraje de una unidad y aparece en *Placas y cambios de datos* con campo, antes, después y quién en columnas; cada pestaña muestra su propia tabla; filtrar por tipo de servicio y por fecha reduce las filas y *Limpiar* las devuelve; exportar la sección y el kardex completo abren un PDF en una pestaña nueva |
 | `14-unidad-no-apta.spec.ts` | Una unidad diagnosticada como no operable desaparece del formulario de checklist de su operador con la explicación, y la unidad apta de otro operador sí aparece |
 | `13-descripciones.spec.ts` | Reporte → asignación → diagnóstico → mantenimiento por pantalla: el mecánico lee la descripción del reporte al diagnosticar y la del diagnóstico al crear el mantenimiento; el gerente ve ambas en la ficha |
 | `10-fotos-refacciones.spec.ts` | Ícono sin foto, archivo inválido rechazado en pantalla, crear con foto y verla en la lista, quitarla al editar, sin sesión no se puede pedir |
+| `16-cambio-operador.spec.ts` | El gerente cambia el operador de E2E-3 (O3 → O4): el actual aparece como «(actual)» y no se puede elegir, un operador con unidad no se ofrece, otra pestaña que intenta asignar a O4 en E2E-4 recibe el error con la unidad que ya tiene; la unidad muestra el operador actual y el historial, la lista muestra uno solo y el kardex cuenta el cambio; O3 ya no puede reportar E2E-3 y O4 sí |
 | `09-contactos.spec.ts` | Teléfono principal con código (etiquetas propias y número que no se encoge), solo dígitos, agregar "Número 2" con el nombre de la persona (se ve en la lista), avisos antes de guardar, máximo de 3 y borrado |
 
 ### Cómo correrlas
@@ -84,7 +88,7 @@ Necesitan el sistema levantado (interfaz `:3000`, API `:8000`) y los datos de pr
 
 ```bash
 docker compose up -d
-docker compose exec backend python manage.py seed_e2e   # crea/restablece G1, M1, O1, O2, L1, F1 y 2 unidades (contraseña Clave12345x)
+docker compose exec backend python manage.py seed_e2e   # crea/restablece G1, M1, O1–O4, L1, F1, 4 unidades y un mantenimiento de E2E-1 (contraseña Clave12345x)
 
 cd frontend
 npm install
@@ -93,7 +97,8 @@ npm run test:e2e
 ```
 
 - **Estados y municipios**: las pruebas no llaman al INEGI real. Levanta `python manage.py inegi_falso` (puerto 8777) y arranca el backend con `INEGI_API_URL=http://localhost:8777/wscatgeo/v2` (las pruebas del backend ya lo simulan solas).
-- **Corre `seed_e2e` antes de cada corrida**: restablece las cuentas que las pruebas consumen (el bloqueo de `L1` y el cambio de contraseña de `F1`). Solo funciona con `DJANGO_DEBUG=1`.
+- **Corre `seed_e2e` antes de cada corrida**: restablece las cuentas que las pruebas consumen (el bloqueo de `L1` y el cambio de contraseña de `F1`) y devuelve `E2E-3` a `O3` y `E2E-4` sin operador (la prueba 16 los cambia). Solo funciona con `DJANGO_DEBUG=1`.
+- **Córrelas en una base aparte, no en la de tu trabajo diario.** `seed_e2e` les pone una contraseña conocida a esas matrículas y les quita foto, contactos y notificaciones. Por eso se niega a correr si encuentra cuentas reales con esas matrículas, es decir, cuentas que no creó él. Para usar otra base, levanta el backend con otra `POSTGRES_DB` (por ejemplo `romex_e2e`) mientras corren las pruebas.
 - Si ya tienes un Chromium instalado: `PW_CHROMIUM=/ruta/a/chromium npm run test:e2e`.
 - Una sola: `npx playwright test 03`. Con ventana: `npx playwright test --headed`.
 - Si algo falla, queda una captura y un *trace* en `frontend/test-results/` (`npx playwright show-trace <archivo>`).

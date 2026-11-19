@@ -12,7 +12,7 @@ No hay registro público: el administrador y el gerente crean las cuentas, y se 
 
 | Término | Significado |
 |---|---|
-| **Unidad** | Un vehículo de la flota, identificado por su número económico |
+| **Unidad** | Un vehículo de la flota, identificado por su número económico. Tiene un solo operador a la vez |
 | **Matrícula** | El usuario con el que entra cada trabajador |
 | **Reporte** | Falla que levanta un operador sobre una de sus unidades |
 | **Diagnóstico** | Lo que concluye el mecánico: causa y si la unidad puede operar |
@@ -55,17 +55,18 @@ Para tener un usuario de cada rol sin darlos de alta a mano, carga los datos de 
 docker compose exec backend python manage.py seed_e2e
 ```
 
-Crea estas cuentas, todas con la contraseña `Clave12345x`, y las unidades `E2E-1` (de O1) y `E2E-2` (de O2):
+Crea estas cuentas, todas con la contraseña `Clave12345x`, y las unidades `E2E-1` (de O1), `E2E-2` (de O2), `E2E-3` (de O3) y `E2E-4` (sin operador):
 
 | Matrícula | Rol | Nota |
 |---|---|---|
 | `G1` | Gerente | |
 | `M1` | Mecánico | |
-| `O1`, `O2` | Operador | |
+| `O1`, `O2`, `O3` | Operador | Cada una con su unidad |
+| `O4` | Operador | Sin unidad |
 | `L1` | Operador | Las pruebas la bloquean a propósito |
 | `F1` | Operador | Debe cambiar la contraseña al entrar |
 
-Las pruebas de navegador usan estas cuentas y `seed_e2e` las restablece en cada corrida, así que no guardes en ellas nada que quieras conservar.
+Las pruebas de navegador usan estas cuentas y `seed_e2e` las restablece en cada corrida, así que no guardes en ellas nada que quieras conservar. Úsalo en una base de pruebas: si encuentra cuentas reales con esas matrículas, se niega a correr para no cambiarles la contraseña ni borrarles la foto ([pruebas.md](pruebas.md)).
 
 ### Sin internet
 

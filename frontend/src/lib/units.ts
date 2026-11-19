@@ -25,7 +25,9 @@ export type Unit = {
   brand: Option;
   current_plate: PlateEntry | null;
   plate_history: PlateEntry[]; // newest first
-  operators: OperatorAssignment[]; // newest first
+  // The one operator who has the unit now (an open assignment), or null
+  current_operator: OperatorAssignment | null;
+  operators: OperatorAssignment[]; // the whole history, newest first
 };
 
 export type UnitInput = {
@@ -35,15 +37,16 @@ export type UnitInput = {
   is_active: boolean;
   // Required when creating. When editing: null keeps the current plate, an object replaces it.
   plate: { state: string; identifier: string; start_date: string } | null;
-  // Operators to assign, and assignments to end (applied when saving)
-  add_operators: { operator_id: number; start_date: string }[];
-  end_operators: { assignment_id: number; end_date: string }[];
+  // Change of operator, applied when saving. Both together = change of operator (one transaction).
+  end_operator: { assignment_id: number; end_date: string } | null; // end the current assignment
+  new_operator: { operator_id: number; start_date: string } | null; // open a new one
 };
 
 export type UnitCatalogs = {
   brands: Option[];
   models: (Option & { brand_id: number })[];
-  operators: Option[]; // active operators, the ones that can be assigned
+  // Active operators without a unit (the ones that can be assigned), plus the unit's current one
+  operators: (Option & { current: boolean })[];
 };
 
 export type StatusFilter = "active" | "inactive" | "all";
@@ -60,4 +63,5 @@ export const updateUnit = (id: number, input: UnitInput) =>
 
 export const deleteUnit = (id: number) => request<{ ok: boolean }>(`unidades/${id}/`, "DELETE");
 
-export const getUnitCatalogs = () => request<UnitCatalogs>("unidades/catalogos/", "GET");
+export const getUnitCatalogs = (unitId?: number) =>
+  request<UnitCatalogs>(`unidades/catalogos/${unitId ? `?unidad=${unitId}` : ""}`, "GET");

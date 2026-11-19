@@ -42,7 +42,7 @@ class ReportWorkflowTest(ApiTestCase):
         self.assertFalse(Notification.objects.filter(user=self.operator, kind=Notification.REPORT_NEW).exists())
 
     def test_operator_only_reports_units_assigned_to_them(self):
-        other = self.make_unit("W-2", operators=[self.operator2])
+        other = self.make_unit("W-2", operator=self.operator2)
         r = self.o.post_json(
             "/api/reportes-fallas/",
             {"unit_id": other["id"], "date": today(), "location": "x", "description": "y"},

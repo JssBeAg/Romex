@@ -131,7 +131,9 @@ def _table(columns, rows, available_width):
     data = [[Paragraph(clean(header), CELL_HEAD) for header, _ in columns]]
     for row in rows:
         data.append([Paragraph(clean(cell).replace("\n", "<br/>"), CELL) for cell in row])
-    table = Table(data, colWidths=widths, repeatRows=1)
+    # splitInRow: a row taller than a page (a very long text) continues on the next page
+    # instead of making the whole PDF fail
+    table = Table(data, colWidths=widths, repeatRows=1, splitInRow=1)
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), INK),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),

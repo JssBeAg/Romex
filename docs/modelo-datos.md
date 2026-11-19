@@ -1,6 +1,6 @@
 # Modelo de datos
 
-_Generado automáticamente con `python manage.py generar_docs` (2026-11-17). No lo edites a mano._
+_Generado automáticamente con `python manage.py generar_docs` (2026-11-18). No lo edites a mano._
 
 Convenciones: tablas, columnas y restricciones en español; claves foráneas con prefijo `id_`.
 
@@ -430,7 +430,7 @@ Restricciones:
 
 ### `unidades_operadores`
 
-Which operator has a unit, and since when until when. No end date = has it now. A unit can have several operators at once, and an operator several units.
+Which operator has a unit, and since when until when. No end date = has it now (open). Exclusive: a unit has at most one open assignment, and an operator at most one open unit. Ending an assignment sets its end date; rows are kept, so the kardex shows who had the unit and when.
 
 | Columna | Tipo | Notas |
 |---|---|---|
@@ -443,7 +443,8 @@ Which operator has a unit, and since when until when. No end date = has it now. 
 Restricciones:
 
 - `operador_fin_no_antes_de_inicio`: restricción CHECK
-- `un_operador_vigente_por_unidad`: único en (unit, operator) (parcial)
+- `un_operador_abierto_por_unidad`: único en (unit) (parcial)
+- `una_unidad_abierta_por_operador`: único en (operator) (parcial)
 
 ### `unidades_placas`
 
